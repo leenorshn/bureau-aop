@@ -1,0 +1,108 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: bureau-mlm-backend
+  annotations:
+    run.googleapis.com/ingress: all
+    run.googleapis.com/execution-environment: gen2
+spec:
+  template:
+    metadata:
+      annotations:
+        # Resource limits for Cloud Run
+        run.googleapis.com/cpu: "1"
+        run.googleapis.com/memory: "1Gi"
+        run.googleapis.com/execution-environment: gen2
+        # Auto-scaling configuration
+        autoscaling.knative.dev/minScale: "0"
+        autoscaling.knative.dev/maxScale: "10"
+        # Timeout configuration
+        run.googleapis.com/timeout: "300s"
+        # Startup probe
+        run.googleapis.com/startup-cpu-boost: "true"
+    spec:
+      containerConcurrency: 100
+      timeoutSeconds: 300
+      containers:
+      - image: gcr.io/PROJECT_ID/bureau-mlm-backend:latest
+        ports:
+        - containerPort: 8080
+        env:
+        # MongoDB Atlas Configuration
+        - name: MONGO_URI
+          value: "mongodb+srv://leenor:avenir23@clusterzone1.b45aacv.mongodb.net/mlm?retryWrites=true&w=majority"
+        - name: MONGO_DB_NAME
+          value: "mlm_db"
+        
+        # JWT Configuration
+        - name: JWT_SECRET
+          value: "your-super-secret-jwt-key-change-this-in-production"
+        - name: JWT_REFRESH_SECRET
+          value: "your-super-secret-refresh-key-change-this-in-production"
+        - name: JWT_ACCESS_EXP
+          value: "15m"
+        - name: JWT_REFRESH_EXP
+          value: "7d"
+        
+        # Admin Configuration
+        - name: ADMIN_SEED_EMAIL
+          value: "admin@mlm.com"
+        - name: ADMIN_SEED_PASSWORD
+          value: "admin123"
+        
+        # Server Configuration
+        - name: APP_PORT
+          value: "8080"
+        - name: APP_ENV
+          value: "production"
+        
+        # Binary MLM Configuration
+        - name: BINARY_THRESHOLD
+          value: "100.0"
+        - name: BINARY_COMMISSION_RATE
+          value: "0.1"
+        - name: DEFAULT_PRODUCT_PRICE
+          value: "50.0"
+        
+        # Cloud Run specific
+        - name: PORT
+          value: "8080"
+        
+        resources:
+          limits:
+            cpu: "1"
+            memory: "1Gi"
+          requests:
+            cpu: "0.5"
+            memory: "512Mi"
+        
+        # Health check
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+
+
+
+
+
+
+
+
+
+
+
+

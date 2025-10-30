@@ -1,0 +1,213 @@
+# GraphQL Schema for MLM Backend
+
+type Product {
+  id: ID!
+  name: String!
+  description: String!
+  price: Float!
+  stock: Int!
+  imageUrl: String!
+  createdAt: String!
+  updatedAt: String!
+}
+
+type Client {
+  id: ID!
+  name: String!
+  email: String!
+  sponsorId: ID
+  position: String
+  leftChildId: ID
+  rightChildId: ID
+  joinDate: String!
+  totalEarnings: Float!
+  walletBalance: Float!
+  networkVolumeLeft: Float!
+  networkVolumeRight: Float!
+  binaryPairs: Int!
+  sponsor: Client
+  leftChild: Client
+  rightChild: Client
+}
+
+type Sale {
+  id: ID!
+  clientId: ID!
+  sponsorId: ID!
+  productId: ID
+  amount: Float!
+  side: String
+  date: String!
+  status: String!
+  note: String
+  client: Client
+  sponsor: Client
+  product: Product
+}
+
+type Payment {
+  id: ID!
+  clientId: ID!
+  amount: Float!
+  date: String!
+  method: String!
+  status: String!
+  description: String
+  client: Client
+}
+
+type Commission {
+  id: ID!
+  clientId: ID!
+  sourceClientId: ID!
+  amount: Float!
+  level: Int!
+  type: String!
+  date: String!
+  client: Client
+  sourceClient: Client
+}
+
+type Admin {
+  id: ID!
+  name: String!
+  email: String!
+  role: String!
+  createdAt: String!
+}
+
+type DashboardStats {
+  totalClients: Int!
+  totalSales: Float!
+  totalCommissions: Float!
+  totalProducts: Int!
+  activeClients: Int!
+}
+
+type AuthPayload {
+  accessToken: String!
+  refreshToken: String!
+  admin: Admin!
+}
+
+type CommissionResult {
+  commissionsCreated: Int!
+  totalAmount: Float!
+  message: String!
+}
+
+input ProductInput {
+  name: String!
+  description: String!
+  price: Float!
+  stock: Int!
+  imageUrl: String!
+}
+
+input ClientInput {
+  name: String!
+  email: String!
+  sponsorId: ID
+}
+
+input SaleInput {
+  clientId: ID!
+  productId: ID
+  amount: Float!
+  note: String
+}
+
+input PaymentInput {
+  clientId: ID!
+  amount: Float!
+  method: String!
+  description: String
+}
+
+input CommissionInput {
+  clientId: ID!
+  sourceClientId: ID!
+  amount: Float!
+  level: Int!
+  type: String!
+}
+
+input LoginInput {
+  email: String!
+  password: String!
+}
+
+input RefreshTokenInput {
+  token: String!
+}
+
+input FilterInput {
+  search: String
+  dateFrom: String
+  dateTo: String
+  status: String
+}
+
+input PagingInput {
+  page: Int
+  limit: Int
+}
+
+type Query {
+  # Products
+  products(filter: FilterInput, paging: PagingInput): [Product!]!
+  product(id: ID!): Product
+
+  # Clients
+  clients(filter: FilterInput, paging: PagingInput): [Client!]!
+  client(id: ID!): Client
+
+  # Sales
+  sales(filter: FilterInput, paging: PagingInput): [Sale!]!
+  sale(id: ID!): Sale
+
+  # Payments
+  payments(filter: FilterInput, paging: PagingInput): [Payment!]!
+  payment(id: ID!): Payment
+
+  # Commissions
+  commissions(filter: FilterInput, paging: PagingInput): [Commission!]!
+  commission(id: ID!): Commission
+
+  # Dashboard
+  dashboardStats(range: String): DashboardStats!
+}
+
+type Mutation {
+  # Authentication
+  adminLogin(input: LoginInput!): AuthPayload!
+  refreshToken(input: RefreshTokenInput!): AuthPayload!
+
+  # Products
+  productCreate(input: ProductInput!): Product!
+  productUpdate(id: ID!, input: ProductInput!): Product!
+  productDelete(id: ID!): Boolean!
+
+  # Clients
+  clientCreate(input: ClientInput!): Client!
+  clientUpdate(id: ID!, input: ClientInput!): Client!
+  clientDelete(id: ID!): Boolean!
+
+  # Sales
+  saleCreate(input: SaleInput!): Sale!
+
+  # Payments
+  paymentCreate(input: PaymentInput!): Payment!
+
+  # Commissions
+  commissionManualCreate(input: CommissionInput!): Commission!
+
+  # MLM Operations
+  runBinaryCommissionCheck(clientId: ID!): CommissionResult!
+}
+
+type Subscription {
+  onNewSale: Sale!
+  onNewCommission: Commission!
+}
+

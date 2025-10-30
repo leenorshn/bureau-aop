@@ -1,0 +1,44 @@
+# Simple Dockerfile for local development
+FROM golang:1.24-alpine AS builder
+
+# Set working directory
+WORKDIR /app
+
+# Install dependencies
+RUN apk add --no-cache git
+
+# Copy go mod files
+COPY go.mod go.sum ./
+
+# Download dependencies
+RUN go mod download
+
+# Copy source code
+COPY . .
+
+# Build the application for local development (force x86_64 architecture)
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -installsuffix cgo -ldflags="-w -s" -o server ./server.go
+
+# Final stage
+FROM alpine:latest
+
+# Install ca-certificates for HTTPS requests
+RUN apk --no-cache add ca-certificates
+
+# Create app directory
+WORKDIR /app
+
+# Copy the binary from builder stage
+COPY --from=builder /app/server .
+
+# Copy environment file
+COPY --from=builder /app/env.example .env
+
+# Make the binary executable
+RUN chmod +x ./server
+
+# Expose port
+EXPOSE 4000
+
+# Run the application
+CMD ["./server"]

@@ -1,0 +1,54 @@
+# Fichiers et dossiers à ignorer lors de la construction Docker
+
+# Dossiers de développement
+.git
+.gitignore
+README.md
+STRUCTURE.md
+CLOUD_RUN_DEPLOYMENT.md
+
+# Fichiers de configuration de développement
+.env
+.env.local
+.env.development
+.env.test
+
+# Dossiers de build et cache
+build/
+dist/
+node_modules/
+*.log
+
+# Fichiers de test
+tests/
+*_test.go
+test_*.sh
+
+# Fichiers Docker
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# Fichiers de déploiement
+scripts/
+cloud-run.yaml
+
+# Fichiers temporaires
+*.tmp
+*.temp
+.DS_Store
+Thumbs.db
+
+# Fichiers de documentation
+docs/
+*.md
+
+# Fichiers de configuration d'IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Fichiers de logs
+logs/
+*.log
