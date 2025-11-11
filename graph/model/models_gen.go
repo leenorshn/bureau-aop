@@ -19,6 +19,7 @@ type Client struct {
 	JoinDate           string  `json:"joinDate"`
 	TotalEarnings      float64 `json:"totalEarnings"`
 	WalletBalance      float64 `json:"walletBalance"`
+	Points             float64 `json:"points"`
 	NetworkVolumeLeft  float64 `json:"networkVolumeLeft"`
 	NetworkVolumeRight float64 `json:"networkVolumeRight"`
 	BinaryPairs        int32   `json:"binaryPairs"`
@@ -30,6 +31,7 @@ type Client struct {
 type ClientInput struct {
 	Name      string  `json:"name"`
 	Password  string  `json:"password"`
+	Position  *string `json:"position,omitempty"`
 	SponsorID *string `json:"sponsorId,omitempty"`
 }
 
@@ -138,6 +140,7 @@ type Product struct {
 	Description string  `json:"description"`
 	Price       float64 `json:"price"`
 	Stock       int32   `json:"stock"`
+	Points      float64 `json:"points"`
 	ImageURL    string  `json:"imageUrl"`
 	CreatedAt   string  `json:"createdAt"`
 	UpdatedAt   string  `json:"updatedAt"`
@@ -148,6 +151,7 @@ type ProductInput struct {
 	Description string  `json:"description"`
 	Price       float64 `json:"price"`
 	Stock       int32   `json:"stock"`
+	Points      float64 `json:"points"`
 	ImageURL    string  `json:"imageUrl"`
 }
 

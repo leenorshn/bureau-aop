@@ -13,6 +13,7 @@ type Product struct {
 	Description string             `bson:"description" json:"description"`
 	Price       float64            `bson:"price" json:"price"`
 	Stock       int                `bson:"stock" json:"stock"`
+	Points      float64            `bson:"points" json:"points"`
 	ImageURL    string             `bson:"imageUrl" json:"imageUrl"`
 	CreatedAt   time.Time          `bson:"createdAt" json:"createdAt"`
 	UpdatedAt   time.Time          `bson:"updatedAt" json:"updatedAt"`
@@ -31,6 +32,7 @@ type Client struct {
 	JoinDate           time.Time           `bson:"joinDate" json:"joinDate"`
 	TotalEarnings      float64             `bson:"totalEarnings" json:"totalEarnings"`
 	WalletBalance      float64             `bson:"walletBalance" json:"walletBalance"`
+	Points             float64             `bson:"points" json:"points"`
 	NetworkVolumeLeft  float64             `bson:"networkVolumeLeft" json:"networkVolumeLeft"`
 	NetworkVolumeRight float64             `bson:"networkVolumeRight" json:"networkVolumeRight"`
 	BinaryPairs        int                 `bson:"binaryPairs" json:"binaryPairs"`
@@ -125,6 +127,7 @@ type ProductInput struct {
 	Description string  `json:"description"`
 	Price       float64 `json:"price"`
 	Stock       int     `json:"stock"`
+	Points      float64 `json:"points"`
 	ImageURL    string  `json:"imageUrl"`
 }
 

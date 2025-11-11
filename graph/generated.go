@@ -64,6 +64,7 @@ type ComplexityRoot struct {
 		Name               func(childComplexity int) int
 		NetworkVolumeLeft  func(childComplexity int) int
 		NetworkVolumeRight func(childComplexity int) int
+		Points             func(childComplexity int) int
 		Position           func(childComplexity int) int
 		RightChild         func(childComplexity int) int
 		RightChildID       func(childComplexity int) int
@@ -158,6 +159,7 @@ type ComplexityRoot struct {
 		ID          func(childComplexity int) int
 		ImageURL    func(childComplexity int) int
 		Name        func(childComplexity int) int
+		Points      func(childComplexity int) int
 		Price       func(childComplexity int) int
 		Stock       func(childComplexity int) int
 		UpdatedAt   func(childComplexity int) int
@@ -359,6 +361,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Client.NetworkVolumeRight(childComplexity), true
+	case "Client.points":
+		if e.complexity.Client.Points == nil {
+			break
+		}
+
+		return e.complexity.Client.Points(childComplexity), true
 	case "Client.position":
 		if e.complexity.Client.Position == nil {
 			break
@@ -872,6 +880,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Product.Name(childComplexity), true
+	case "Product.points":
+		if e.complexity.Product.Points == nil {
+			break
+		}
+
+		return e.complexity.Product.Points(childComplexity), true
 	case "Product.price":
 		if e.complexity.Product.Price == nil {
 			break
@@ -2167,6 +2181,35 @@ func (ec *executionContext) fieldContext_Client_walletBalance(_ context.Context,
 	return fc, nil
 }
 
+func (ec *executionContext) _Client_points(ctx context.Context, field graphql.CollectedField, obj *model.Client) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Client_points,
+		func(ctx context.Context) (any, error) {
+			return obj.Points, nil
+		},
+		nil,
+		ec.marshalNFloat2float64,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Client_points(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Client",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Float does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Client_networkVolumeLeft(ctx context.Context, field graphql.CollectedField, obj *model.Client) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -2298,6 +2341,8 @@ func (ec *executionContext) fieldContext_Client_sponsor(_ context.Context, field
 				return ec.fieldContext_Client_totalEarnings(ctx, field)
 			case "walletBalance":
 				return ec.fieldContext_Client_walletBalance(ctx, field)
+			case "points":
+				return ec.fieldContext_Client_points(ctx, field)
 			case "networkVolumeLeft":
 				return ec.fieldContext_Client_networkVolumeLeft(ctx, field)
 			case "networkVolumeRight":
@@ -2361,6 +2406,8 @@ func (ec *executionContext) fieldContext_Client_leftChild(_ context.Context, fie
 				return ec.fieldContext_Client_totalEarnings(ctx, field)
 			case "walletBalance":
 				return ec.fieldContext_Client_walletBalance(ctx, field)
+			case "points":
+				return ec.fieldContext_Client_points(ctx, field)
 			case "networkVolumeLeft":
 				return ec.fieldContext_Client_networkVolumeLeft(ctx, field)
 			case "networkVolumeRight":
@@ -2424,6 +2471,8 @@ func (ec *executionContext) fieldContext_Client_rightChild(_ context.Context, fi
 				return ec.fieldContext_Client_totalEarnings(ctx, field)
 			case "walletBalance":
 				return ec.fieldContext_Client_walletBalance(ctx, field)
+			case "points":
+				return ec.fieldContext_Client_points(ctx, field)
 			case "networkVolumeLeft":
 				return ec.fieldContext_Client_networkVolumeLeft(ctx, field)
 			case "networkVolumeRight":
@@ -2690,6 +2739,8 @@ func (ec *executionContext) fieldContext_Commission_client(_ context.Context, fi
 				return ec.fieldContext_Client_totalEarnings(ctx, field)
 			case "walletBalance":
 				return ec.fieldContext_Client_walletBalance(ctx, field)
+			case "points":
+				return ec.fieldContext_Client_points(ctx, field)
 			case "networkVolumeLeft":
 				return ec.fieldContext_Client_networkVolumeLeft(ctx, field)
 			case "networkVolumeRight":
@@ -2753,6 +2804,8 @@ func (ec *executionContext) fieldContext_Commission_sourceClient(_ context.Conte
 				return ec.fieldContext_Client_totalEarnings(ctx, field)
 			case "walletBalance":
 				return ec.fieldContext_Client_walletBalance(ctx, field)
+			case "points":
+				return ec.fieldContext_Client_points(ctx, field)
 			case "networkVolumeLeft":
 				return ec.fieldContext_Client_networkVolumeLeft(ctx, field)
 			case "networkVolumeRight":
@@ -3605,6 +3658,8 @@ func (ec *executionContext) fieldContext_Mutation_productCreate(ctx context.Cont
 				return ec.fieldContext_Product_price(ctx, field)
 			case "stock":
 				return ec.fieldContext_Product_stock(ctx, field)
+			case "points":
+				return ec.fieldContext_Product_points(ctx, field)
 			case "imageUrl":
 				return ec.fieldContext_Product_imageUrl(ctx, field)
 			case "createdAt":
@@ -3664,6 +3719,8 @@ func (ec *executionContext) fieldContext_Mutation_productUpdate(ctx context.Cont
 				return ec.fieldContext_Product_price(ctx, field)
 			case "stock":
 				return ec.fieldContext_Product_stock(ctx, field)
+			case "points":
+				return ec.fieldContext_Product_points(ctx, field)
 			case "imageUrl":
 				return ec.fieldContext_Product_imageUrl(ctx, field)
 			case "createdAt":
@@ -3774,6 +3831,8 @@ func (ec *executionContext) fieldContext_Mutation_clientCreate(ctx context.Conte
 				return ec.fieldContext_Client_totalEarnings(ctx, field)
 			case "walletBalance":
 				return ec.fieldContext_Client_walletBalance(ctx, field)
+			case "points":
+				return ec.fieldContext_Client_points(ctx, field)
 			case "networkVolumeLeft":
 				return ec.fieldContext_Client_networkVolumeLeft(ctx, field)
 			case "networkVolumeRight":
@@ -3849,6 +3908,8 @@ func (ec *executionContext) fieldContext_Mutation_clientUpdate(ctx context.Conte
 				return ec.fieldContext_Client_totalEarnings(ctx, field)
 			case "walletBalance":
 				return ec.fieldContext_Client_walletBalance(ctx, field)
+			case "points":
+				return ec.fieldContext_Client_points(ctx, field)
 			case "networkVolumeLeft":
 				return ec.fieldContext_Client_networkVolumeLeft(ctx, field)
 			case "networkVolumeRight":
@@ -4702,6 +4763,8 @@ func (ec *executionContext) fieldContext_Payment_client(_ context.Context, field
 				return ec.fieldContext_Client_totalEarnings(ctx, field)
 			case "walletBalance":
 				return ec.fieldContext_Client_walletBalance(ctx, field)
+			case "points":
+				return ec.fieldContext_Client_points(ctx, field)
 			case "networkVolumeLeft":
 				return ec.fieldContext_Client_networkVolumeLeft(ctx, field)
 			case "networkVolumeRight":
@@ -4861,6 +4924,35 @@ func (ec *executionContext) fieldContext_Product_stock(_ context.Context, field 
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Product_points(ctx context.Context, field graphql.CollectedField, obj *model.Product) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Product_points,
+		func(ctx context.Context) (any, error) {
+			return obj.Points, nil
+		},
+		nil,
+		ec.marshalNFloat2float64,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Product_points(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Product",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Float does not have child fields")
 		},
 	}
 	return fc, nil
@@ -5029,6 +5121,8 @@ func (ec *executionContext) fieldContext_Query_products(ctx context.Context, fie
 				return ec.fieldContext_Product_price(ctx, field)
 			case "stock":
 				return ec.fieldContext_Product_stock(ctx, field)
+			case "points":
+				return ec.fieldContext_Product_points(ctx, field)
 			case "imageUrl":
 				return ec.fieldContext_Product_imageUrl(ctx, field)
 			case "createdAt":
@@ -5088,6 +5182,8 @@ func (ec *executionContext) fieldContext_Query_product(ctx context.Context, fiel
 				return ec.fieldContext_Product_price(ctx, field)
 			case "stock":
 				return ec.fieldContext_Product_stock(ctx, field)
+			case "points":
+				return ec.fieldContext_Product_points(ctx, field)
 			case "imageUrl":
 				return ec.fieldContext_Product_imageUrl(ctx, field)
 			case "createdAt":
@@ -5157,6 +5253,8 @@ func (ec *executionContext) fieldContext_Query_clients(ctx context.Context, fiel
 				return ec.fieldContext_Client_totalEarnings(ctx, field)
 			case "walletBalance":
 				return ec.fieldContext_Client_walletBalance(ctx, field)
+			case "points":
+				return ec.fieldContext_Client_points(ctx, field)
 			case "networkVolumeLeft":
 				return ec.fieldContext_Client_networkVolumeLeft(ctx, field)
 			case "networkVolumeRight":
@@ -5232,6 +5330,8 @@ func (ec *executionContext) fieldContext_Query_client(ctx context.Context, field
 				return ec.fieldContext_Client_totalEarnings(ctx, field)
 			case "walletBalance":
 				return ec.fieldContext_Client_walletBalance(ctx, field)
+			case "points":
+				return ec.fieldContext_Client_points(ctx, field)
 			case "networkVolumeLeft":
 				return ec.fieldContext_Client_networkVolumeLeft(ctx, field)
 			case "networkVolumeRight":
@@ -6361,6 +6461,8 @@ func (ec *executionContext) fieldContext_Sale_client(_ context.Context, field gr
 				return ec.fieldContext_Client_totalEarnings(ctx, field)
 			case "walletBalance":
 				return ec.fieldContext_Client_walletBalance(ctx, field)
+			case "points":
+				return ec.fieldContext_Client_points(ctx, field)
 			case "networkVolumeLeft":
 				return ec.fieldContext_Client_networkVolumeLeft(ctx, field)
 			case "networkVolumeRight":
@@ -6424,6 +6526,8 @@ func (ec *executionContext) fieldContext_Sale_sponsor(_ context.Context, field g
 				return ec.fieldContext_Client_totalEarnings(ctx, field)
 			case "walletBalance":
 				return ec.fieldContext_Client_walletBalance(ctx, field)
+			case "points":
+				return ec.fieldContext_Client_points(ctx, field)
 			case "networkVolumeLeft":
 				return ec.fieldContext_Client_networkVolumeLeft(ctx, field)
 			case "networkVolumeRight":
@@ -6477,6 +6581,8 @@ func (ec *executionContext) fieldContext_Sale_product(_ context.Context, field g
 				return ec.fieldContext_Product_price(ctx, field)
 			case "stock":
 				return ec.fieldContext_Product_stock(ctx, field)
+			case "points":
+				return ec.fieldContext_Product_points(ctx, field)
 			case "imageUrl":
 				return ec.fieldContext_Product_imageUrl(ctx, field)
 			case "createdAt":
@@ -8339,7 +8445,7 @@ func (ec *executionContext) unmarshalInputClientInput(ctx context.Context, obj a
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"name", "password", "sponsorId"}
+	fieldsInOrder := [...]string{"name", "password", "position", "sponsorId"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -8360,6 +8466,13 @@ func (ec *executionContext) unmarshalInputClientInput(ctx context.Context, obj a
 				return it, err
 			}
 			it.Password = data
+		case "position":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("position"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Position = data
 		case "sponsorId":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("sponsorId"))
 			data, err := ec.unmarshalOID2ᚖstring(ctx, v)
@@ -8633,7 +8746,7 @@ func (ec *executionContext) unmarshalInputProductInput(ctx context.Context, obj 
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"name", "description", "price", "stock", "imageUrl"}
+	fieldsInOrder := [...]string{"name", "description", "price", "stock", "points", "imageUrl"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -8668,6 +8781,13 @@ func (ec *executionContext) unmarshalInputProductInput(ctx context.Context, obj 
 				return it, err
 			}
 			it.Stock = data
+		case "points":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("points"))
+			data, err := ec.unmarshalNFloat2float64(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Points = data
 		case "imageUrl":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("imageUrl"))
 			data, err := ec.unmarshalNString2string(ctx, v)
@@ -8873,6 +8993,11 @@ func (ec *executionContext) _Client(ctx context.Context, sel ast.SelectionSet, o
 			}
 		case "walletBalance":
 			out.Values[i] = ec._Client_walletBalance(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "points":
+			out.Values[i] = ec._Client_points(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -9511,6 +9636,11 @@ func (ec *executionContext) _Product(ctx context.Context, sel ast.SelectionSet, 
 			}
 		case "stock":
 			out.Values[i] = ec._Product_stock(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "points":
+			out.Values[i] = ec._Product_points(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}

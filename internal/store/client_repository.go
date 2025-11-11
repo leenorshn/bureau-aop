@@ -169,6 +169,34 @@ func (r *ClientRepository) UpdateEarnings(ctx context.Context, id string, totalE
 	return err
 }
 
+func (r *ClientRepository) UpdatePoints(ctx context.Context, id string, points float64) error {
+	objectID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return err
+	}
+
+	_, err = r.collection.UpdateOne(ctx, bson.M{"_id": objectID}, bson.M{
+		"$set": bson.M{
+			"points": points,
+		},
+	})
+	return err
+}
+
+func (r *ClientRepository) AddPoints(ctx context.Context, id string, pointsToAdd float64) error {
+	objectID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return err
+	}
+
+	_, err = r.collection.UpdateOne(ctx, bson.M{"_id": objectID}, bson.M{
+		"$inc": bson.M{
+			"points": pointsToAdd,
+		},
+	})
+	return err
+}
+
 func (r *ClientRepository) UpdateBinaryPairs(ctx context.Context, id string, pairs int) error {
 	objectID, err := primitive.ObjectIDFromHex(id)
 	if err != nil {

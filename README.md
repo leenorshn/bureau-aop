@@ -339,3 +339,6 @@ Pour toute question ou problème:
 - Tests unitaires
 - Docker support
 
+
+gcloud builds submit --tag gcr.io/bureaumlmg/bureau
+

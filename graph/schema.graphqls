@@ -6,6 +6,7 @@ type Product {
   description: String!
   price: Float!
   stock: Int!
+  points: Float!
   imageUrl: String!
   createdAt: String!
   updatedAt: String!
@@ -22,6 +23,7 @@ type Client {
   joinDate: String!
   totalEarnings: Float!
   walletBalance: Float!
+  points: Float!
   networkVolumeLeft: Float!
   networkVolumeRight: Float!
   binaryPairs: Int!
@@ -150,12 +152,14 @@ input ProductInput {
   description: String!
   price: Float!
   stock: Int!
+  points: Float!
   imageUrl: String!
 }
 
 input ClientInput {
   name: String!
   password: String!
+  position: String
   sponsorId: ID
 }
 

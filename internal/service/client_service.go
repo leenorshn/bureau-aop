@@ -60,7 +60,11 @@ func (s *ClientService) Delete(ctx context.Context, id string) (bool, error) {
 }
 
 // CreateWithBinaryPlacement creates a new client and places them in the binary tree
-func (s *ClientService) CreateWithBinaryPlacement(ctx context.Context, client *models.Client, sponsorID *primitive.ObjectID) (*models.Client, error) {
+// If requestedPosition is provided ("left" or "right"), it will try to place the client at that position.
+// If the requested position is not available, it returns an error.
+// If requestedPosition is nil, it uses the first available position (left then right).
+// If both positions are taken, it returns an error asking user to choose another sponsor.
+func (s *ClientService) CreateWithBinaryPlacement(ctx context.Context, client *models.Client, sponsorID *primitive.ObjectID, requestedPosition *string) (*models.Client, error) {
 	// Generate unique client ID
 	clientID, err := s.generateUniqueClientID(ctx)
 	if err != nil {
@@ -86,33 +90,60 @@ func (s *ClientService) CreateWithBinaryPlacement(ctx context.Context, client *m
 		client.BinaryPairs = 0
 		client.TotalEarnings = 0
 		client.WalletBalance = 0
+		client.Points = 0
 
 		createdClient, err := s.clientRepo.Create(ctx, client)
 		if err != nil {
 			return nil, err
 		}
-
-		// Note: Auto-generated sales removed to avoid frontend issues
-		// Sales should be created explicitly through the SaleCreate mutation
-
 		return createdClient, nil
 	}
 
 	// Find the sponsor
-	_, err = s.clientRepo.GetByID(ctx, sponsorID.Hex())
+	sponsor, err := s.clientRepo.GetByID(ctx, sponsorID.Hex())
 	if err != nil {
-		return nil, errors.New("sponsor not found")
+		return nil, errors.New("sponsor introuvable")
 	}
 
-	// Find placement position in binary tree
-	placement, err := s.findBinaryPlacement(ctx, sponsorID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to find binary placement: %w", err)
+	// Check if sponsor has available positions
+	hasLeftChild := sponsor.LeftChildID != nil
+	hasRightChild := sponsor.RightChildID != nil
+
+	// If both positions are taken, return error
+	if hasLeftChild && hasRightChild {
+		return nil, errors.New("ce sponsor a déjà 2 enfants (les positions gauche et droite sont prises). Veuillez choisir un autre sponsor qui a une position disponible")
+	}
+
+	// Determine position
+	var position string
+	if requestedPosition != nil {
+		// User specified a position
+		requestedPos := *requestedPosition
+		if requestedPos != "left" && requestedPos != "right" {
+			return nil, errors.New("la position doit être 'left' ou 'right'")
+		}
+
+		// Check if requested position is available
+		if requestedPos == "left" && hasLeftChild {
+			return nil, errors.New("la position gauche est déjà prise sur ce sponsor. Veuillez choisir 'right' ou sélectionner un autre sponsor")
+		}
+		if requestedPos == "right" && hasRightChild {
+			return nil, errors.New("la position droite est déjà prise sur ce sponsor. Veuillez choisir 'left' ou sélectionner un autre sponsor")
+		}
+
+		position = requestedPos
+	} else {
+		// No position specified, use first available
+		if !hasLeftChild {
+			position = "left"
+		} else {
+			position = "right"
+		}
 	}
 
 	// Set client properties
 	client.SponsorID = sponsorID
-	client.Position = &placement.Position
+	client.Position = &position
 	client.LeftChildID = nil
 	client.RightChildID = nil
 	client.NetworkVolumeLeft = 0
@@ -120,6 +151,7 @@ func (s *ClientService) CreateWithBinaryPlacement(ctx context.Context, client *m
 	client.BinaryPairs = 0
 	client.TotalEarnings = 0
 	client.WalletBalance = 0
+	client.Points = 0
 
 	// Create the client
 	createdClient, err := s.clientRepo.Create(ctx, client)
@@ -128,17 +160,14 @@ func (s *ClientService) CreateWithBinaryPlacement(ctx context.Context, client *m
 	}
 
 	// Update sponsor's binary tree
-	err = s.updateSponsorBinaryTree(ctx, placement.SponsorID, createdClient.ID, placement.Position)
+	err = s.updateSponsorBinaryTree(ctx, *sponsorID, createdClient.ID, position)
 	if err != nil {
 		s.logger.Error("Failed to update sponsor binary tree", zap.Error(err))
 		// Continue anyway, the client is created
 	}
 
-	// Note: Auto-generated sales removed to avoid frontend issues
-	// Sales should be created explicitly through the SaleCreate mutation
-
 	// Update network volumes and check for binary commissions
-	err = s.updateNetworkVolumesAndCommissions(ctx, placement.SponsorID, s.defaultProductPrice, placement.Position)
+	err = s.updateNetworkVolumesAndCommissions(ctx, *sponsorID, s.defaultProductPrice, position)
 	if err != nil {
 		s.logger.Error("Failed to update network volumes and commissions", zap.Error(err))
 	}
@@ -146,54 +175,24 @@ func (s *ClientService) CreateWithBinaryPlacement(ctx context.Context, client *m
 	return createdClient, nil
 }
 
-type BinaryPlacement struct {
-	SponsorID primitive.ObjectID
-	Position  string // "left" or "right"
-}
-
-// findBinaryPlacement finds the appropriate position for a new client in the binary tree
-func (s *ClientService) findBinaryPlacement(ctx context.Context, sponsorID *primitive.ObjectID) (*BinaryPlacement, error) {
-	// Start from the sponsor and traverse down to find the first available position
-	queue := []primitive.ObjectID{*sponsorID}
-
-	for len(queue) > 0 {
-		currentID := queue[0]
-		queue = queue[1:]
-
-		// Get current client
-		client, err := s.clientRepo.GetByID(ctx, currentID.Hex())
-		if err != nil {
-			continue
-		}
-
-		// Check if left position is available
-		if client.LeftChildID == nil {
-			return &BinaryPlacement{
-				SponsorID: currentID,
-				Position:  "left",
-			}, nil
-		}
-
-		// Check if right position is available
-		if client.RightChildID == nil {
-			return &BinaryPlacement{
-				SponsorID: currentID,
-				Position:  "right",
-			}, nil
-		}
-
-		// Both positions are filled, add children to queue for BFS traversal
-		queue = append(queue, *client.LeftChildID, *client.RightChildID)
-	}
-
-	return nil, errors.New("no available position found in binary tree")
-}
-
 // updateSponsorBinaryTree updates the sponsor's binary tree with the new client
 func (s *ClientService) updateSponsorBinaryTree(ctx context.Context, sponsorID primitive.ObjectID, clientID primitive.ObjectID, position string) error {
+	// Verify sponsor exists and check binary tree constraint
+	sponsor, err := s.clientRepo.GetByID(ctx, sponsorID.Hex())
+	if err != nil {
+		return fmt.Errorf("sponsor introuvable: %w", err)
+	}
+
+	// Enforce binary tree constraint: a sponsor can only have 2 children
 	if position == "left" {
+		if sponsor.LeftChildID != nil {
+			return errors.New("le sponsor a déjà un enfant à gauche - contrainte d'arbre binaire violée")
+		}
 		return s.clientRepo.UpdateBinaryFields(ctx, sponsorID.Hex(), &clientID, nil, &position)
 	} else {
+		if sponsor.RightChildID != nil {
+			return errors.New("le sponsor a déjà un enfant à droite - contrainte d'arbre binaire violée")
+		}
 		return s.clientRepo.UpdateBinaryFields(ctx, sponsorID.Hex(), nil, &clientID, &position)
 	}
 }
@@ -340,4 +339,9 @@ func (s *ClientService) HashPassword(password string) (string, error) {
 		return "", err
 	}
 	return string(hash), nil
+}
+
+// AddPoints adds points to a client
+func (s *ClientService) AddPoints(ctx context.Context, clientID string, pointsToAdd float64) error {
+	return s.clientRepo.AddPoints(ctx, clientID, pointsToAdd)
 }

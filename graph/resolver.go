@@ -37,4 +37,3 @@ func NewResolver(
 		adminService:      adminService,
 	}
 }
-

@@ -101,6 +101,7 @@ func (r *ProductRepository) Update(ctx context.Context, id string, product *mode
 			"description": product.Description,
 			"price":       product.Price,
 			"stock":       product.Stock,
+			"points":      product.Points,
 			"imageUrl":    product.ImageURL,
 			"updatedAt":   product.UpdatedAt,
 		},

@@ -24,18 +24,20 @@ func NewJWTService(cfg *config.Config, logger *zap.Logger) *JWTService {
 }
 
 type Claims struct {
-	AdminID string `json:"admin_id"`
-	Email   string `json:"email"`
-	Role    string `json:"role"`
+	AdminID  string `json:"admin_id"`
+	ClientID string `json:"client_id"`
+	Email    string `json:"email"`
+	Role     string `json:"role"`
 	jwt.RegisteredClaims
 }
 
 // GenerateAccessToken generates a new access token
 func (j *JWTService) GenerateAccessToken(admin *models.Admin) (string, error) {
 	claims := &Claims{
-		AdminID: admin.ID.Hex(),
-		Email:   admin.Email,
-		Role:    admin.Role,
+		AdminID:  admin.ID.Hex(),
+		ClientID: "",
+		Email:    admin.Email,
+		Role:     admin.Role,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(j.config.JWTAccessExp)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
@@ -52,9 +54,10 @@ func (j *JWTService) GenerateAccessToken(admin *models.Admin) (string, error) {
 // GenerateRefreshToken generates a new refresh token
 func (j *JWTService) GenerateRefreshToken(admin *models.Admin) (string, error) {
 	claims := &Claims{
-		AdminID: admin.ID.Hex(),
-		Email:   admin.Email,
-		Role:    admin.Role,
+		AdminID:  admin.ID.Hex(),
+		ClientID: "",
+		Email:    admin.Email,
+		Role:     admin.Role,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(j.config.JWTRefreshExp)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
@@ -64,6 +67,44 @@ func (j *JWTService) GenerateRefreshToken(admin *models.Admin) (string, error) {
 		},
 	}
 
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString([]byte(j.config.JWTRefreshSecret))
+}
+
+// GenerateClientAccessToken generates a client access token
+func (j *JWTService) GenerateClientAccessToken(client *models.Client) (string, error) {
+	claims := &Claims{
+		AdminID:  "",
+		ClientID: client.ID.Hex(),
+		Email:    "",
+		Role:     "client",
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(j.config.JWTAccessExp)),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			NotBefore: jwt.NewNumericDate(time.Now()),
+			Issuer:    "bureau-mlm",
+			Subject:   client.ID.Hex(),
+		},
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString([]byte(j.config.JWTSecret))
+}
+
+// GenerateClientRefreshToken generates a client refresh token
+func (j *JWTService) GenerateClientRefreshToken(client *models.Client) (string, error) {
+	claims := &Claims{
+		AdminID:  "",
+		ClientID: client.ID.Hex(),
+		Email:    "",
+		Role:     "client",
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(j.config.JWTRefreshExp)),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			NotBefore: jwt.NewNumericDate(time.Now()),
+			Issuer:    "bureau-mlm",
+			Subject:   client.ID.Hex(),
+		},
+	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString([]byte(j.config.JWTRefreshSecret))
 }

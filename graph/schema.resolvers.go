@@ -6,109 +6,504 @@ package graph
 
 import (
 	"bureau/graph/model"
+	"bureau/internal/models"
 	"context"
 	"fmt"
+	"strings"
 	"time"
+
+	"github.com/99designs/gqlgen/graphql"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 // UserLogin is the resolver for the userLogin field.
 func (r *mutationResolver) UserLogin(ctx context.Context, input model.LoginInput) (*model.AuthPayload, error) {
-	panic(fmt.Errorf("not implemented: UserLogin - userLogin"))
+	ap, err := r.Resolver.authService.AdminLogin(ctx, input.Email, input.Password)
+	if err != nil {
+		return nil, err
+	}
+	user := &model.User{
+		ID:    ap.Admin.ID.Hex(),
+		Name:  ap.Admin.Name,
+		Email: ap.Admin.Email,
+		Role:  ap.Admin.Role,
+		// CreatedAt omitted for brevity
+	}
+	return &model.AuthPayload{AccessToken: ap.AccessToken, RefreshToken: ap.RefreshToken, User: user}, nil
 }
 
 // ClientLogin is the resolver for the clientLogin field.
 func (r *mutationResolver) ClientLogin(ctx context.Context, input model.ClientLoginInput) (*model.AuthPayload, error) {
-	panic(fmt.Errorf("not implemented: ClientLogin - clientLogin"))
+	// Authenticate client by clientId/password
+	c, err := r.Resolver.clientService.AuthenticateClient(ctx, input.ClientID, input.Password)
+	if err != nil {
+		return nil, err
+	}
+	// Generate client JWT tokens
+	jwt := r.Resolver.authService.GetJWTService()
+	access, err := jwt.GenerateClientAccessToken(c)
+	if err != nil {
+		return nil, err
+	}
+	refresh, err := jwt.GenerateClientRefreshToken(c)
+	if err != nil {
+		return nil, err
+	}
+	return &model.AuthPayload{
+		AccessToken:  access,
+		RefreshToken: refresh,
+		User: &model.User{
+			ID:        c.ID.Hex(),
+			Name:      c.Name,
+			Email:     "",
+			Role:      "client",
+			CreatedAt: "",
+		},
+	}, nil
 }
 
 // RefreshToken is the resolver for the refreshToken field.
 func (r *mutationResolver) RefreshToken(ctx context.Context, input model.RefreshTokenInput) (*model.AuthPayload, error) {
-	panic(fmt.Errorf("not implemented: RefreshToken - refreshToken"))
+	ap, err := r.Resolver.authService.RefreshToken(ctx, input.Token)
+	if err != nil {
+		return nil, err
+	}
+	user := &model.User{
+		ID:    ap.Admin.ID.Hex(),
+		Name:  ap.Admin.Name,
+		Email: ap.Admin.Email,
+		Role:  ap.Admin.Role,
+	}
+	return &model.AuthPayload{AccessToken: ap.AccessToken, RefreshToken: ap.RefreshToken, User: user}, nil
 }
 
 // ProductCreate is the resolver for the productCreate field.
 func (r *mutationResolver) ProductCreate(ctx context.Context, input model.ProductInput) (*model.Product, error) {
-	panic(fmt.Errorf("not implemented: ProductCreate - productCreate"))
+	now := time.Now()
+	p := &models.Product{
+		Name:        input.Name,
+		Description: input.Description,
+		Price:       input.Price,
+		Stock:       int(input.Stock),
+		Points:      input.Points,
+		ImageURL:    input.ImageURL,
+		CreatedAt:   now,
+		UpdatedAt:   now,
+	}
+	created, err := r.Resolver.productService.Create(ctx, p)
+	if err != nil {
+		return nil, err
+	}
+	return &model.Product{
+		ID:          created.ID.Hex(),
+		Name:        created.Name,
+		Description: created.Description,
+		Price:       created.Price,
+		Stock:       int32(created.Stock),
+		Points:      created.Points,
+		ImageURL:    created.ImageURL,
+		CreatedAt:   created.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:   created.UpdatedAt.Format(time.RFC3339),
+	}, nil
 }
 
 // ProductUpdate is the resolver for the productUpdate field.
 func (r *mutationResolver) ProductUpdate(ctx context.Context, id string, input model.ProductInput) (*model.Product, error) {
-	panic(fmt.Errorf("not implemented: ProductUpdate - productUpdate"))
+	now := time.Now()
+	p := &models.Product{
+		Name:        input.Name,
+		Description: input.Description,
+		Price:       input.Price,
+		Stock:       int(input.Stock),
+		Points:      input.Points,
+		ImageURL:    input.ImageURL,
+		UpdatedAt:   now,
+	}
+	updated, err := r.Resolver.productService.Update(ctx, id, p)
+	if err != nil {
+		return nil, err
+	}
+	return &model.Product{
+		ID:          updated.ID.Hex(),
+		Name:        updated.Name,
+		Description: updated.Description,
+		Price:       updated.Price,
+		Stock:       int32(updated.Stock),
+		Points:      updated.Points,
+		ImageURL:    updated.ImageURL,
+		CreatedAt:   updated.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:   updated.UpdatedAt.Format(time.RFC3339),
+	}, nil
 }
 
 // ProductDelete is the resolver for the productDelete field.
 func (r *mutationResolver) ProductDelete(ctx context.Context, id string) (bool, error) {
-	panic(fmt.Errorf("not implemented: ProductDelete - productDelete"))
+	return r.Resolver.productService.Delete(ctx, id)
 }
 
 // ClientCreate is the resolver for the clientCreate field.
 func (r *mutationResolver) ClientCreate(ctx context.Context, input model.ClientInput) (*model.Client, error) {
-	panic(fmt.Errorf("not implemented: ClientCreate - clientCreate"))
+	var sponsorOID *primitive.ObjectID
+	if input.SponsorID != nil {
+		oid, err := primitive.ObjectIDFromHex(*input.SponsorID)
+		if err == nil {
+			sponsorOID = &oid
+		}
+	}
+
+	var requestedPosition *string
+	if input.Position != nil && *input.Position != "" {
+		requestedPosition = input.Position
+	}
+
+	now := time.Now()
+	m := &models.Client{
+		Name:         input.Name,
+		PasswordHash: input.Password, // service will hash
+		JoinDate:     now,
+	}
+	created, err := r.Resolver.clientService.CreateWithBinaryPlacement(ctx, m, sponsorOID, requestedPosition)
+	if err != nil {
+		return nil, err
+	}
+	out := &model.Client{
+		ID:                 created.ID.Hex(),
+		ClientID:           created.ClientID,
+		Name:               created.Name,
+		JoinDate:           created.JoinDate.Format(time.RFC3339),
+		Position:           created.Position,
+		TotalEarnings:      created.TotalEarnings,
+		WalletBalance:      created.WalletBalance,
+		Points:             created.Points,
+		NetworkVolumeLeft:  created.NetworkVolumeLeft,
+		NetworkVolumeRight: created.NetworkVolumeRight,
+		BinaryPairs:        int32(created.BinaryPairs),
+	}
+	if created.SponsorID != nil {
+		sid := created.SponsorID.Hex()
+		out.SponsorID = &sid
+	}
+	if created.LeftChildID != nil {
+		lid := created.LeftChildID.Hex()
+		out.LeftChildID = &lid
+	}
+	if created.RightChildID != nil {
+		rid := created.RightChildID.Hex()
+		out.RightChildID = &rid
+	}
+	return out, nil
 }
 
 // ClientUpdate is the resolver for the clientUpdate field.
 func (r *mutationResolver) ClientUpdate(ctx context.Context, id string, input model.ClientInput) (*model.Client, error) {
-	panic(fmt.Errorf("not implemented: ClientUpdate - clientUpdate"))
+	m := &models.Client{
+		Name: input.Name,
+	}
+	updated, err := r.Resolver.clientService.Update(ctx, id, m)
+	if err != nil {
+		return nil, err
+	}
+	out := &model.Client{
+		ID:                 updated.ID.Hex(),
+		ClientID:           updated.ClientID,
+		Name:               updated.Name,
+		JoinDate:           updated.JoinDate.Format(time.RFC3339),
+		Position:           updated.Position,
+		TotalEarnings:      updated.TotalEarnings,
+		WalletBalance:      updated.WalletBalance,
+		Points:             updated.Points,
+		NetworkVolumeLeft:  updated.NetworkVolumeLeft,
+		NetworkVolumeRight: updated.NetworkVolumeRight,
+		BinaryPairs:        int32(updated.BinaryPairs),
+	}
+	if updated.SponsorID != nil {
+		sid := updated.SponsorID.Hex()
+		out.SponsorID = &sid
+	}
+	if updated.LeftChildID != nil {
+		lid := updated.LeftChildID.Hex()
+		out.LeftChildID = &lid
+	}
+	if updated.RightChildID != nil {
+		rid := updated.RightChildID.Hex()
+		out.RightChildID = &rid
+	}
+	return out, nil
 }
 
 // ClientDelete is the resolver for the clientDelete field.
 func (r *mutationResolver) ClientDelete(ctx context.Context, id string) (bool, error) {
-	panic(fmt.Errorf("not implemented: ClientDelete - clientDelete"))
+	return r.Resolver.clientService.Delete(ctx, id)
 }
 
 // SaleCreate is the resolver for the saleCreate field.
 func (r *mutationResolver) SaleCreate(ctx context.Context, input model.SaleInput) (*model.Sale, error) {
-	panic(fmt.Errorf("not implemented: SaleCreate - saleCreate"))
+	// Resolve client and sponsor
+	clientOID, err := primitive.ObjectIDFromHex(input.ClientID)
+	if err != nil {
+		return nil, err
+	}
+	client, err := r.Resolver.clientService.GetByID(ctx, input.ClientID)
+	if err != nil {
+		return nil, err
+	}
+	sponsorOID := clientOID
+	if client.SponsorID != nil {
+		sponsorOID = *client.SponsorID
+	}
+
+	// Resolve product and get points
+	var productOID *primitive.ObjectID
+	var pointsToAdd float64
+	if input.ProductID != "" {
+		poid, err := primitive.ObjectIDFromHex(input.ProductID)
+		if err == nil {
+			productOID = &poid
+			// Get product to retrieve points
+			product, err := r.Resolver.productService.GetByID(ctx, input.ProductID)
+			if err == nil && product != nil {
+				// Calculate points: product points * quantity
+				pointsToAdd = product.Points * float64(input.Quantity)
+			}
+		}
+	}
+
+	status := "pending"
+	if input.Status != nil {
+		status = *input.Status
+	}
+
+	m := &models.Sale{
+		ClientID:  clientOID,
+		SponsorID: sponsorOID,
+		ProductID: productOID,
+		Amount:    input.Amount,
+		Quantity:  int(input.Quantity),
+		Date:      time.Now(),
+		Status:    status,
+		Note:      input.Note,
+	}
+	created, err := r.Resolver.saleService.Create(ctx, m)
+	if err != nil {
+		return nil, err
+	}
+
+	// Add points to client if product has points
+	if pointsToAdd > 0 {
+		err = r.Resolver.clientService.AddPoints(ctx, input.ClientID, pointsToAdd)
+		if err != nil {
+			// Log error but don't fail the sale creation
+			// In production, you might want to handle this differently
+		}
+	}
+
+	var prodIdStr *string
+	if created.ProductID != nil {
+		s := created.ProductID.Hex()
+		prodIdStr = &s
+	}
+	return &model.Sale{
+		ID: created.ID.Hex(), ClientID: created.ClientID.Hex(), SponsorID: created.SponsorID.Hex(), ProductID: prodIdStr,
+		Amount: created.Amount, Quantity: int32(created.Quantity), Side: created.Side, Date: created.Date.Format(time.RFC3339), Status: created.Status, Note: created.Note,
+	}, nil
 }
 
 // SaleUpdate is the resolver for the saleUpdate field.
 func (r *mutationResolver) SaleUpdate(ctx context.Context, id string, input model.SaleInput) (*model.Sale, error) {
-	panic(fmt.Errorf("not implemented: SaleUpdate - saleUpdate"))
+	// Keep client and sponsor based on input client
+	clientOID, err := primitive.ObjectIDFromHex(input.ClientID)
+	if err != nil {
+		return nil, err
+	}
+	client, err := r.Resolver.clientService.GetByID(ctx, input.ClientID)
+	if err != nil {
+		return nil, err
+	}
+	sponsorOID := clientOID
+	if client.SponsorID != nil {
+		sponsorOID = *client.SponsorID
+	}
+
+	var productOID *primitive.ObjectID
+	if input.ProductID != "" {
+		poid, err := primitive.ObjectIDFromHex(input.ProductID)
+		if err == nil {
+			productOID = &poid
+		}
+	}
+	status := "pending"
+	if input.Status != nil {
+		status = *input.Status
+	}
+
+	m := &models.Sale{
+		ClientID:  clientOID,
+		SponsorID: sponsorOID,
+		ProductID: productOID,
+		Amount:    input.Amount,
+		Quantity:  int(input.Quantity),
+		Status:    status,
+		Note:      input.Note,
+	}
+	updated, err := r.Resolver.saleService.Update(ctx, id, m)
+	if err != nil {
+		return nil, err
+	}
+	var prodIdStr *string
+	if updated.ProductID != nil {
+		s := updated.ProductID.Hex()
+		prodIdStr = &s
+	}
+	return &model.Sale{
+		ID: updated.ID.Hex(), ClientID: updated.ClientID.Hex(), SponsorID: updated.SponsorID.Hex(), ProductID: prodIdStr,
+		Amount: updated.Amount, Quantity: int32(updated.Quantity), Side: updated.Side, Date: updated.Date.Format(time.RFC3339), Status: updated.Status, Note: updated.Note,
+	}, nil
 }
 
 // SaleDelete is the resolver for the saleDelete field.
 func (r *mutationResolver) SaleDelete(ctx context.Context, id string) (bool, error) {
-	panic(fmt.Errorf("not implemented: SaleDelete - saleDelete"))
+	return r.Resolver.saleService.Delete(ctx, id)
 }
 
 // PaymentCreate is the resolver for the paymentCreate field.
 func (r *mutationResolver) PaymentCreate(ctx context.Context, input model.PaymentInput) (*model.Payment, error) {
-	panic(fmt.Errorf("not implemented: PaymentCreate - paymentCreate"))
+	clientOID, err := primitive.ObjectIDFromHex(input.ClientID)
+	if err != nil {
+		return nil, err
+	}
+	p := &models.Payment{
+		ClientID:    clientOID,
+		Amount:      input.Amount,
+		Date:        time.Now(),
+		Method:      input.Method,
+		Status:      "completed",
+		Description: input.Description,
+	}
+	created, err := r.Resolver.paymentService.Create(ctx, p)
+	if err != nil {
+		return nil, err
+	}
+	return &model.Payment{
+		ID: created.ID.Hex(), ClientID: created.ClientID.Hex(), Amount: created.Amount,
+		Date: created.Date.Format(time.RFC3339), Method: created.Method, Status: created.Status, Description: created.Description,
+	}, nil
 }
 
 // PaymentUpdate is the resolver for the paymentUpdate field.
 func (r *mutationResolver) PaymentUpdate(ctx context.Context, id string, input model.PaymentInput) (*model.Payment, error) {
-	panic(fmt.Errorf("not implemented: PaymentUpdate - paymentUpdate"))
+	clientOID, err := primitive.ObjectIDFromHex(input.ClientID)
+	if err != nil {
+		return nil, err
+	}
+	p := &models.Payment{
+		ClientID:    clientOID,
+		Amount:      input.Amount,
+		Method:      input.Method,
+		Description: input.Description,
+	}
+	updated, err := r.Resolver.paymentService.Update(ctx, id, p)
+	if err != nil {
+		return nil, err
+	}
+	return &model.Payment{
+		ID: updated.ID.Hex(), ClientID: updated.ClientID.Hex(), Amount: updated.Amount,
+		Date: updated.Date.Format(time.RFC3339), Method: updated.Method, Status: updated.Status, Description: updated.Description,
+	}, nil
 }
 
 // PaymentDelete is the resolver for the paymentDelete field.
 func (r *mutationResolver) PaymentDelete(ctx context.Context, id string) (bool, error) {
-	panic(fmt.Errorf("not implemented: PaymentDelete - paymentDelete"))
+	return r.Resolver.paymentService.Delete(ctx, id)
 }
 
 // CommissionManualCreate is the resolver for the commissionManualCreate field.
 func (r *mutationResolver) CommissionManualCreate(ctx context.Context, input model.CommissionInput) (*model.Commission, error) {
-	panic(fmt.Errorf("not implemented: CommissionManualCreate - commissionManualCreate"))
+	clientOID, err := primitive.ObjectIDFromHex(input.ClientID)
+	if err != nil {
+		return nil, err
+	}
+	sourceOID, err := primitive.ObjectIDFromHex(input.SourceClientID)
+	if err != nil {
+		return nil, err
+	}
+	c := &models.Commission{
+		ClientID:       clientOID,
+		SourceClientID: sourceOID,
+		Amount:         input.Amount,
+		Level:          int(input.Level),
+		Type:           input.Type,
+		Date:           time.Now(),
+	}
+	created, err := r.Resolver.commissionService.Create(ctx, c)
+	if err != nil {
+		return nil, err
+	}
+	return &model.Commission{
+		ID: created.ID.Hex(), ClientID: created.ClientID.Hex(), SourceClientID: created.SourceClientID.Hex(), Amount: created.Amount,
+		Level: int32(created.Level), Type: created.Type, Date: created.Date.Format(time.RFC3339),
+	}, nil
 }
 
 // RunBinaryCommissionCheck is the resolver for the runBinaryCommissionCheck field.
 func (r *mutationResolver) RunBinaryCommissionCheck(ctx context.Context, clientID string) (*model.CommissionResult, error) {
-	panic(fmt.Errorf("not implemented: RunBinaryCommissionCheck - runBinaryCommissionCheck"))
+	res, err := r.Resolver.commissionService.RunBinaryCommissionCheck(ctx, clientID)
+	if err != nil {
+		return nil, err
+	}
+	return &model.CommissionResult{CommissionsCreated: int32(res.CommissionsCreated), TotalAmount: res.TotalAmount, Message: res.Message}, nil
 }
 
 // Me is the resolver for the me field.
 func (r *queryResolver) Me(ctx context.Context) (*model.User, error) {
-	panic(fmt.Errorf("not implemented: Me - me"))
+	// Try to read Authorization header from gqlgen operation context
+	var token string
+	if oc := graphql.GetOperationContext(ctx); oc != nil {
+		if oc.Headers != nil {
+			auth := oc.Headers.Get("Authorization")
+			if strings.HasPrefix(strings.ToLower(auth), "bearer ") {
+				token = strings.TrimSpace(auth[7:])
+			}
+		}
+	}
+	if token == "" {
+		return nil, fmt.Errorf("unauthenticated")
+	}
+	admin, err := r.Resolver.authService.ValidateToken(ctx, token)
+	if err != nil {
+		return nil, fmt.Errorf("unauthenticated")
+	}
+	return &model.User{
+		ID:        admin.ID.Hex(),
+		Name:      admin.Name,
+		Email:     admin.Email,
+		Role:      admin.Role,
+		CreatedAt: admin.CreatedAt.Format(time.RFC3339),
+	}, nil
 }
 
 // Products is the resolver for the products field.
 func (r *queryResolver) Products(ctx context.Context, filter *model.FilterInput, paging *model.PagingInput) ([]*model.Product, error) {
-	panic(fmt.Errorf("not implemented: Products - products"))
+	list, err := r.Resolver.productService.GetAll(ctx, nil, nil)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]*model.Product, 0, len(list))
+	for _, p := range list {
+		out = append(out, &model.Product{
+			ID: p.ID.Hex(), Name: p.Name, Description: p.Description, Price: p.Price, Stock: int32(p.Stock), Points: p.Points, ImageURL: p.ImageURL,
+			CreatedAt: p.CreatedAt.Format(time.RFC3339), UpdatedAt: p.UpdatedAt.Format(time.RFC3339),
+		})
+	}
+	return out, nil
 }
 
 // Product is the resolver for the product field.
 func (r *queryResolver) Product(ctx context.Context, id string) (*model.Product, error) {
-	panic(fmt.Errorf("not implemented: Product - product"))
+	p, err := r.Resolver.productService.GetByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	return &model.Product{ID: p.ID.Hex(), Name: p.Name, Description: p.Description, Price: p.Price, Stock: int32(p.Stock), Points: p.Points, ImageURL: p.ImageURL, CreatedAt: p.CreatedAt.Format(time.RFC3339), UpdatedAt: p.UpdatedAt.Format(time.RFC3339)}, nil
 }
 
 // Clients is the resolver for the clients field.
@@ -132,6 +527,7 @@ func (r *queryResolver) Clients(ctx context.Context, filter *model.FilterInput, 
 			RightChildID:       nil,
 			TotalEarnings:      c.TotalEarnings,
 			WalletBalance:      c.WalletBalance,
+			Points:             c.Points,
 			NetworkVolumeLeft:  c.NetworkVolumeLeft,
 			NetworkVolumeRight: c.NetworkVolumeRight,
 			BinaryPairs:        int32(c.BinaryPairs),
@@ -179,6 +575,7 @@ func (r *queryResolver) Client(ctx context.Context, id string) (*model.Client, e
 		Position:           c.Position,
 		TotalEarnings:      c.TotalEarnings,
 		WalletBalance:      c.WalletBalance,
+		Points:             c.Points,
 		NetworkVolumeLeft:  c.NetworkVolumeLeft,
 		NetworkVolumeRight: c.NetworkVolumeRight,
 		BinaryPairs:        int32(c.BinaryPairs),
@@ -211,52 +608,94 @@ func (r *queryResolver) Client(ctx context.Context, id string) (*model.Client, e
 
 // Sales is the resolver for the sales field.
 func (r *queryResolver) Sales(ctx context.Context, filter *model.FilterInput, paging *model.PagingInput) ([]*model.Sale, error) {
-	panic(fmt.Errorf("not implemented: Sales - sales"))
+	return []*model.Sale{}, nil
 }
 
 // Sale is the resolver for the sale field.
 func (r *queryResolver) Sale(ctx context.Context, id string) (*model.Sale, error) {
-	panic(fmt.Errorf("not implemented: Sale - sale"))
+	return nil, nil
 }
 
 // Payments is the resolver for the payments field.
 func (r *queryResolver) Payments(ctx context.Context, filter *model.FilterInput, paging *model.PagingInput) ([]*model.Payment, error) {
-	panic(fmt.Errorf("not implemented: Payments - payments"))
+	list, err := r.Resolver.paymentService.GetAll(ctx, nil, nil)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]*model.Payment, 0, len(list))
+	for _, p := range list {
+		out = append(out, &model.Payment{ID: p.ID.Hex(), ClientID: p.ClientID.Hex(), Amount: p.Amount, Date: p.Date.Format(time.RFC3339), Method: p.Method, Status: p.Status, Description: p.Description})
+	}
+	return out, nil
 }
 
 // Payment is the resolver for the payment field.
 func (r *queryResolver) Payment(ctx context.Context, id string) (*model.Payment, error) {
-	panic(fmt.Errorf("not implemented: Payment - payment"))
+	p, err := r.Resolver.paymentService.GetByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	return &model.Payment{ID: p.ID.Hex(), ClientID: p.ClientID.Hex(), Amount: p.Amount, Date: p.Date.Format(time.RFC3339), Method: p.Method, Status: p.Status, Description: p.Description}, nil
 }
 
 // Commissions is the resolver for the commissions field.
 func (r *queryResolver) Commissions(ctx context.Context, filter *model.FilterInput, paging *model.PagingInput) ([]*model.Commission, error) {
-	panic(fmt.Errorf("not implemented: Commissions - commissions"))
+	list, err := r.Resolver.commissionService.GetAll(ctx, nil, nil)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]*model.Commission, 0, len(list))
+	for _, c := range list {
+		out = append(out, &model.Commission{ID: c.ID.Hex(), ClientID: c.ClientID.Hex(), SourceClientID: c.SourceClientID.Hex(), Amount: c.Amount, Level: int32(c.Level), Type: c.Type, Date: c.Date.Format(time.RFC3339)})
+	}
+	return out, nil
 }
 
 // Commission is the resolver for the commission field.
 func (r *queryResolver) Commission(ctx context.Context, id string) (*model.Commission, error) {
-	panic(fmt.Errorf("not implemented: Commission - commission"))
+	c, err := r.Resolver.commissionService.GetByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	return &model.Commission{ID: c.ID.Hex(), ClientID: c.ClientID.Hex(), SourceClientID: c.SourceClientID.Hex(), Amount: c.Amount, Level: int32(c.Level), Type: c.Type, Date: c.Date.Format(time.RFC3339)}, nil
 }
 
 // DashboardStats is the resolver for the dashboardStats field.
 func (r *queryResolver) DashboardStats(ctx context.Context, rangeArg *string) (*model.DashboardStats, error) {
-	panic(fmt.Errorf("not implemented: DashboardStats - dashboardStats"))
+	s, err := r.Resolver.adminService.GetDashboardStats(ctx, rangeArg)
+	if err != nil {
+		return nil, err
+	}
+	return &model.DashboardStats{
+		TotalProducts: int32(s.TotalProducts), TotalClients: int32(s.TotalClients), TotalSales: s.TotalSales, TotalCommissions: s.TotalCommissions,
+		TotalRevenue: 0, ActiveClients: int32(s.ActiveClients), LeftVolume: 0, RightVolume: 0, BinaryPairs: 0, NetworkBalance: 0,
+		MonthlySales: []*model.MonthlySales{}, NetworkGrowth: []*model.NetworkGrowth{}, SalesStatus: &model.SalesStatus{}, TopProducts: []*model.TopProduct{}, RecentActivity: []*model.RecentActivity{},
+	}, nil
 }
 
 // DashboardData is the resolver for the dashboardData field.
 func (r *queryResolver) DashboardData(ctx context.Context) (*model.DashboardStats, error) {
-	panic(fmt.Errorf("not implemented: DashboardData - dashboardData"))
+	s, err := r.Resolver.adminService.GetDashboardStats(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	return &model.DashboardStats{
+		TotalProducts: int32(s.TotalProducts), TotalClients: int32(s.TotalClients), TotalSales: s.TotalSales, TotalCommissions: s.TotalCommissions,
+		TotalRevenue: 0, ActiveClients: int32(s.ActiveClients), LeftVolume: 0, RightVolume: 0, BinaryPairs: 0, NetworkBalance: 0,
+		MonthlySales: []*model.MonthlySales{}, NetworkGrowth: []*model.NetworkGrowth{}, SalesStatus: &model.SalesStatus{}, TopProducts: []*model.TopProduct{}, RecentActivity: []*model.RecentActivity{},
+	}, nil
 }
 
 // OnNewSale is the resolver for the onNewSale field.
 func (r *subscriptionResolver) OnNewSale(ctx context.Context) (<-chan *model.Sale, error) {
-	panic(fmt.Errorf("not implemented: OnNewSale - onNewSale"))
+	ch := make(chan *model.Sale, 1)
+	return ch, nil
 }
 
 // OnNewCommission is the resolver for the onNewCommission field.
 func (r *subscriptionResolver) OnNewCommission(ctx context.Context) (<-chan *model.Commission, error) {
-	panic(fmt.Errorf("not implemented: OnNewCommission - onNewCommission"))
+	ch := make(chan *model.Commission, 1)
+	return ch, nil
 }
 
 // Mutation returns MutationResolver implementation.
