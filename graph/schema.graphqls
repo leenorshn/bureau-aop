@@ -16,6 +16,10 @@ type Client {
   id: ID!
   clientId: String!
   name: String!
+  phone:String
+  nn:String
+  address:String
+  avatar:String
   sponsorId: ID
   position: String
   leftChildId: ID
@@ -30,6 +34,8 @@ type Client {
   sponsor: Client
   leftChild: Client
   rightChild: Client
+  transactions: [Payment!]!
+  purchases: [Sale!]!
 }
 
 type Sale {
@@ -69,6 +75,27 @@ type Commission {
   date: String!
   client: Client
   sourceClient: Client
+}
+
+type Caisse {
+  id: ID!
+  balance: Float!
+  totalEntrees: Float!
+  totalSorties: Float!
+  createdAt: String!
+  updatedAt: String!
+  transactions: [CaisseTransaction!]!
+}
+
+type CaisseTransaction {
+  id: ID!
+  type: String! # "entree" ou "sortie"
+  amount: Float!
+  description: String
+  reference: String # ID de la vente ou paiement associé
+  referenceType: String # "sale", "payment", "manual"
+  date: String!
+  createdBy: String
 }
 
 type User {
@@ -160,7 +187,11 @@ input ClientInput {
   name: String!
   password: String!
   position: String
-  sponsorId: ID
+  sponsorId: ID 
+  phone:String
+  nn:String
+  address:String
+  avatar:String
 }
 
 input SaleInput {
@@ -201,6 +232,14 @@ input RefreshTokenInput {
   token: String!
 }
 
+input CaisseTransactionInput {
+  type: String! # "entree" ou "sortie"
+  amount: Float!
+  description: String
+  reference: String
+  referenceType: String # "sale", "payment", "manual"
+}
+
 input FilterInput {
   search: String
   dateFrom: String
@@ -239,6 +278,10 @@ type Query {
   # Dashboard
   dashboardStats(range: String): DashboardStats!
   dashboardData: DashboardStats!
+
+  # Caisse
+  caisse: Caisse!
+  caisseTransactions(filter: FilterInput, paging: PagingInput): [CaisseTransaction!]!
 }
 
 type Mutation {
@@ -272,6 +315,10 @@ type Mutation {
 
   # MLM Operations
   runBinaryCommissionCheck(clientId: ID!): CommissionResult!
+
+  # Caisse
+  caisseAddTransaction(input: CaisseTransactionInput!): CaisseTransaction!
+  caisseUpdateBalance(balance: Float!): Caisse!
 }
 
 type Subscription {

@@ -16,6 +16,7 @@ type Resolver struct {
 	commissionService *service.CommissionService
 	authService       *service.AuthService
 	adminService      *service.AdminService
+	caisseService     *service.CaisseService
 }
 
 func NewResolver(
@@ -26,6 +27,7 @@ func NewResolver(
 	commissionService *service.CommissionService,
 	authService *service.AuthService,
 	adminService *service.AdminService,
+	caisseService *service.CaisseService,
 ) *Resolver {
 	return &Resolver{
 		productService:    productService,
@@ -35,5 +37,6 @@ func NewResolver(
 		commissionService: commissionService,
 		authService:       authService,
 		adminService:      adminService,
+		caisseService:     caisseService,
 	}
 }

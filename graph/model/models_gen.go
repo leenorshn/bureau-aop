@@ -8,24 +8,59 @@ type AuthPayload struct {
 	User         *User  `json:"user"`
 }
 
+type Caisse struct {
+	ID           string               `json:"id"`
+	Balance      float64              `json:"balance"`
+	TotalEntrees float64              `json:"totalEntrees"`
+	TotalSorties float64              `json:"totalSorties"`
+	CreatedAt    string               `json:"createdAt"`
+	UpdatedAt    string               `json:"updatedAt"`
+	Transactions []*CaisseTransaction `json:"transactions"`
+}
+
+type CaisseTransaction struct {
+	ID            string  `json:"id"`
+	Type          string  `json:"type"`
+	Amount        float64 `json:"amount"`
+	Description   *string `json:"description,omitempty"`
+	Reference     *string `json:"reference,omitempty"`
+	ReferenceType *string `json:"referenceType,omitempty"`
+	Date          string  `json:"date"`
+	CreatedBy     *string `json:"createdBy,omitempty"`
+}
+
+type CaisseTransactionInput struct {
+	Type          string  `json:"type"`
+	Amount        float64 `json:"amount"`
+	Description   *string `json:"description,omitempty"`
+	Reference     *string `json:"reference,omitempty"`
+	ReferenceType *string `json:"referenceType,omitempty"`
+}
+
 type Client struct {
-	ID                 string  `json:"id"`
-	ClientID           string  `json:"clientId"`
-	Name               string  `json:"name"`
-	SponsorID          *string `json:"sponsorId,omitempty"`
-	Position           *string `json:"position,omitempty"`
-	LeftChildID        *string `json:"leftChildId,omitempty"`
-	RightChildID       *string `json:"rightChildId,omitempty"`
-	JoinDate           string  `json:"joinDate"`
-	TotalEarnings      float64 `json:"totalEarnings"`
-	WalletBalance      float64 `json:"walletBalance"`
-	Points             float64 `json:"points"`
-	NetworkVolumeLeft  float64 `json:"networkVolumeLeft"`
-	NetworkVolumeRight float64 `json:"networkVolumeRight"`
-	BinaryPairs        int32   `json:"binaryPairs"`
-	Sponsor            *Client `json:"sponsor,omitempty"`
-	LeftChild          *Client `json:"leftChild,omitempty"`
-	RightChild         *Client `json:"rightChild,omitempty"`
+	ID                 string     `json:"id"`
+	ClientID           string     `json:"clientId"`
+	Name               string     `json:"name"`
+	Phone              *string    `json:"phone,omitempty"`
+	Nn                 *string    `json:"nn,omitempty"`
+	Address            *string    `json:"address,omitempty"`
+	Avatar             *string    `json:"avatar,omitempty"`
+	SponsorID          *string    `json:"sponsorId,omitempty"`
+	Position           *string    `json:"position,omitempty"`
+	LeftChildID        *string    `json:"leftChildId,omitempty"`
+	RightChildID       *string    `json:"rightChildId,omitempty"`
+	JoinDate           string     `json:"joinDate"`
+	TotalEarnings      float64    `json:"totalEarnings"`
+	WalletBalance      float64    `json:"walletBalance"`
+	Points             float64    `json:"points"`
+	NetworkVolumeLeft  float64    `json:"networkVolumeLeft"`
+	NetworkVolumeRight float64    `json:"networkVolumeRight"`
+	BinaryPairs        int32      `json:"binaryPairs"`
+	Sponsor            *Client    `json:"sponsor,omitempty"`
+	LeftChild          *Client    `json:"leftChild,omitempty"`
+	RightChild         *Client    `json:"rightChild,omitempty"`
+	Transactions       []*Payment `json:"transactions"`
+	Purchases          []*Sale    `json:"purchases"`
 }
 
 type ClientInput struct {
@@ -33,6 +68,10 @@ type ClientInput struct {
 	Password  string  `json:"password"`
 	Position  *string `json:"position,omitempty"`
 	SponsorID *string `json:"sponsorId,omitempty"`
+	Phone     *string `json:"phone,omitempty"`
+	Nn        *string `json:"nn,omitempty"`
+	Address   *string `json:"address,omitempty"`
+	Avatar    *string `json:"avatar,omitempty"`
 }
 
 type ClientLoginInput struct {

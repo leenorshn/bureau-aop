@@ -25,6 +25,10 @@ type Client struct {
 	ClientID           string              `bson:"clientId" json:"clientId"` // 8-digit numeric ID
 	Name               string              `bson:"name" json:"name"`
 	PasswordHash       string              `bson:"passwordHash" json:"-"`
+	Phone              *string             `bson:"phone,omitempty" json:"phone,omitempty"`
+	NN                 *string             `bson:"nn,omitempty" json:"nn,omitempty"`
+	Address            *string             `bson:"address,omitempty" json:"address,omitempty"`
+	Avatar             *string             `bson:"avatar,omitempty" json:"avatar,omitempty"`
 	SponsorID          *primitive.ObjectID `bson:"sponsorId,omitempty" json:"sponsorId"`
 	Position           *string             `bson:"position,omitempty" json:"position"` // "left" or "right"
 	LeftChildID        *primitive.ObjectID `bson:"leftChildId,omitempty" json:"leftChildId"`
@@ -107,6 +111,28 @@ type CommissionResult struct {
 	Message            string  `json:"message"`
 }
 
+// Caisse represents the company's cash register/treasury
+type Caisse struct {
+	ID           primitive.ObjectID `bson:"_id,omitempty" json:"id"`
+	Balance      float64            `bson:"balance" json:"balance"`
+	TotalEntrees float64            `bson:"totalEntrees" json:"totalEntrees"`
+	TotalSorties float64            `bson:"totalSorties" json:"totalSorties"`
+	CreatedAt    time.Time          `bson:"createdAt" json:"createdAt"`
+	UpdatedAt    time.Time          `bson:"updatedAt" json:"updatedAt"`
+}
+
+// CaisseTransaction represents a transaction in the caisse (entree or sortie)
+type CaisseTransaction struct {
+	ID            primitive.ObjectID `bson:"_id,omitempty" json:"id"`
+	Type          string             `bson:"type" json:"type"` // "entree" or "sortie"
+	Amount        float64            `bson:"amount" json:"amount"`
+	Description   *string            `bson:"description,omitempty" json:"description,omitempty"`
+	Reference     *string            `bson:"reference,omitempty" json:"reference,omitempty"`         // ID of sale or payment
+	ReferenceType *string            `bson:"referenceType,omitempty" json:"referenceType,omitempty"` // "sale", "payment", "manual"
+	Date          time.Time          `bson:"date" json:"date"`
+	CreatedBy     *string            `bson:"createdBy,omitempty" json:"createdBy,omitempty"`
+}
+
 // FilterInput represents filtering options for queries
 type FilterInput struct {
 	Search   *string    `json:"search,omitempty"`
@@ -135,6 +161,10 @@ type ProductInput struct {
 type ClientInput struct {
 	Name      string  `json:"name"`
 	Password  string  `json:"password"`
+	Phone     *string `json:"phone,omitempty"`
+	NN        *string `json:"nn,omitempty"`
+	Address   *string `json:"address,omitempty"`
+	Avatar    *string `json:"avatar,omitempty"`
 	SponsorID *string `json:"sponsorId,omitempty"`
 }
 

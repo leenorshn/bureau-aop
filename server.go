@@ -72,6 +72,7 @@ func main() {
 	paymentRepo := store.NewPaymentRepository(db)
 	commissionRepo := store.NewCommissionRepository(db)
 	adminRepo := store.NewAdminRepository(db)
+	caisseRepo := store.NewCaisseRepository(db)
 
 	// Initialize JWT service
 	jwtService := auth.NewJWTService(cfg, logger)
@@ -84,6 +85,7 @@ func main() {
 	commissionService := service.NewCommissionService(commissionRepo, clientRepo, logger, cfg.BinaryCommissionRate, cfg.BinaryThreshold)
 	adminService := service.NewAdminService(adminRepo, clientRepo, productRepo, saleRepo, commissionRepo, logger)
 	authService := service.NewAuthService(adminRepo, jwtService, logger)
+	caisseService := service.NewCaisseService(caisseRepo, logger)
 
 	// Initialize GraphQL resolver
 	resolver := graph.NewResolver(
@@ -94,6 +96,7 @@ func main() {
 		commissionService,
 		authService,
 		adminService,
+		caisseService,
 	)
 
 	// Create GraphQL handler

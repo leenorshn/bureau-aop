@@ -8,6 +8,7 @@ import (
 	"bureau/graph/model"
 	"bureau/internal/models"
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -160,6 +161,10 @@ func (r *mutationResolver) ClientCreate(ctx context.Context, input model.ClientI
 	m := &models.Client{
 		Name:         input.Name,
 		PasswordHash: input.Password, // service will hash
+		Phone:        input.Phone,
+		NN:           input.Nn,
+		Address:      input.Address,
+		Avatar:       input.Avatar,
 		JoinDate:     now,
 	}
 	created, err := r.Resolver.clientService.CreateWithBinaryPlacement(ctx, m, sponsorOID, requestedPosition)
@@ -170,6 +175,10 @@ func (r *mutationResolver) ClientCreate(ctx context.Context, input model.ClientI
 		ID:                 created.ID.Hex(),
 		ClientID:           created.ClientID,
 		Name:               created.Name,
+		Phone:              created.Phone,
+		Nn:                 created.NN,
+		Address:            created.Address,
+		Avatar:             created.Avatar,
 		JoinDate:           created.JoinDate.Format(time.RFC3339),
 		Position:           created.Position,
 		TotalEarnings:      created.TotalEarnings,
@@ -197,7 +206,11 @@ func (r *mutationResolver) ClientCreate(ctx context.Context, input model.ClientI
 // ClientUpdate is the resolver for the clientUpdate field.
 func (r *mutationResolver) ClientUpdate(ctx context.Context, id string, input model.ClientInput) (*model.Client, error) {
 	m := &models.Client{
-		Name: input.Name,
+		Name:    input.Name,
+		Phone:   input.Phone,
+		NN:      input.Nn,
+		Address: input.Address,
+		Avatar:  input.Avatar,
 	}
 	updated, err := r.Resolver.clientService.Update(ctx, id, m)
 	if err != nil {
@@ -207,6 +220,10 @@ func (r *mutationResolver) ClientUpdate(ctx context.Context, id string, input mo
 		ID:                 updated.ID.Hex(),
 		ClientID:           updated.ClientID,
 		Name:               updated.Name,
+		Phone:              updated.Phone,
+		Nn:                 updated.NN,
+		Address:            updated.Address,
+		Avatar:             updated.Avatar,
 		JoinDate:           updated.JoinDate.Format(time.RFC3339),
 		Position:           updated.Position,
 		TotalEarnings:      updated.TotalEarnings,
@@ -259,11 +276,28 @@ func (r *mutationResolver) SaleCreate(ctx context.Context, input model.SaleInput
 		poid, err := primitive.ObjectIDFromHex(input.ProductID)
 		if err == nil {
 			productOID = &poid
-			// Get product to retrieve points
+			// Get product to retrieve points and check stock
 			product, err := r.Resolver.productService.GetByID(ctx, input.ProductID)
-			if err == nil && product != nil {
-				// Calculate points: product points * quantity
-				pointsToAdd = product.Points * float64(input.Quantity)
+			if err != nil {
+				return nil, fmt.Errorf("produit introuvable: %w", err)
+			}
+			if product == nil {
+				return nil, errors.New("produit introuvable")
+			}
+
+			// Vérifier que le stock est suffisant
+			if product.Stock < int(input.Quantity) {
+				return nil, fmt.Errorf("stock insuffisant: disponible %d, demandé %d", product.Stock, input.Quantity)
+			}
+
+			// Calculate points: product points * quantity
+			pointsToAdd = product.Points * float64(input.Quantity)
+
+			// Diminuer le stock du produit
+			product.Stock = product.Stock - int(input.Quantity)
+			_, err = r.Resolver.productService.Update(ctx, input.ProductID, product)
+			if err != nil {
+				return nil, fmt.Errorf("échec de la mise à jour du stock: %w", err)
 			}
 		}
 	}
@@ -288,9 +322,29 @@ func (r *mutationResolver) SaleCreate(ctx context.Context, input model.SaleInput
 		return nil, err
 	}
 
-	// Add points to client if product has points
-	if pointsToAdd > 0 {
+	// Ajouter les points au client selon le produit acheté et la quantité
+	// Les points = points du produit × quantité achetée
+	if input.ProductID != "" && pointsToAdd > 0 {
 		err = r.Resolver.clientService.AddPoints(ctx, input.ClientID, pointsToAdd)
+		if err != nil {
+			// Si l'ajout de points échoue, on retourne une erreur car c'est important
+			return nil, fmt.Errorf("échec de l'ajout des points au client: %w", err)
+		}
+	}
+
+	// Ajouter une entrée à la caisse pour cette vente (seulement si le statut est "paid")
+	if created.Status == "paid" {
+		saleRef := created.ID.Hex()
+		refType := "sale"
+		desc := fmt.Sprintf("Vente de produit - Client: %s", client.Name)
+		caisseTransaction := &models.CaisseTransaction{
+			Type:          "entree",
+			Amount:        created.Amount,
+			Description:   &desc,
+			Reference:     &saleRef,
+			ReferenceType: &refType,
+		}
+		_, err = r.Resolver.caisseService.AddTransaction(ctx, caisseTransaction)
 		if err != nil {
 			// Log error but don't fail the sale creation
 			// In production, you might want to handle this differently
@@ -383,6 +437,32 @@ func (r *mutationResolver) PaymentCreate(ctx context.Context, input model.Paymen
 	if err != nil {
 		return nil, err
 	}
+
+	// Ajouter une sortie à la caisse pour ce paiement
+	paymentRef := created.ID.Hex()
+	refType := "payment"
+	client, err := r.Resolver.clientService.GetByID(ctx, input.ClientID)
+	clientName := "Client inconnu"
+	if err == nil && client != nil {
+		clientName = client.Name
+	}
+	desc := fmt.Sprintf("Paiement client - %s", clientName)
+	if input.Description != nil {
+		desc = *input.Description
+	}
+	caisseTransaction := &models.CaisseTransaction{
+		Type:          "sortie",
+		Amount:        created.Amount,
+		Description:   &desc,
+		Reference:     &paymentRef,
+		ReferenceType: &refType,
+	}
+	_, err = r.Resolver.caisseService.AddTransaction(ctx, caisseTransaction)
+	if err != nil {
+		// Log error but don't fail the payment creation
+		// In production, you might want to handle this differently
+	}
+
 	return &model.Payment{
 		ID: created.ID.Hex(), ClientID: created.ClientID.Hex(), Amount: created.Amount,
 		Date: created.Date.Format(time.RFC3339), Method: created.Method, Status: created.Status, Description: created.Description,
@@ -453,6 +533,71 @@ func (r *mutationResolver) RunBinaryCommissionCheck(ctx context.Context, clientI
 	return &model.CommissionResult{CommissionsCreated: int32(res.CommissionsCreated), TotalAmount: res.TotalAmount, Message: res.Message}, nil
 }
 
+// CaisseAddTransaction is the resolver for the caisseAddTransaction field.
+func (r *mutationResolver) CaisseAddTransaction(ctx context.Context, input model.CaisseTransactionInput) (*model.CaisseTransaction, error) {
+	transaction := &models.CaisseTransaction{
+		Type:          input.Type,
+		Amount:        input.Amount,
+		Description:   input.Description,
+		Reference:     input.Reference,
+		ReferenceType: input.ReferenceType,
+	}
+
+	created, err := r.Resolver.caisseService.AddTransaction(ctx, transaction)
+	if err != nil {
+		return nil, err
+	}
+
+	return &model.CaisseTransaction{
+		ID:            created.ID.Hex(),
+		Type:          created.Type,
+		Amount:        created.Amount,
+		Description:   created.Description,
+		Reference:     created.Reference,
+		ReferenceType: created.ReferenceType,
+		Date:          created.Date.Format(time.RFC3339),
+		CreatedBy:     created.CreatedBy,
+	}, nil
+}
+
+// CaisseUpdateBalance is the resolver for the caisseUpdateBalance field.
+func (r *mutationResolver) CaisseUpdateBalance(ctx context.Context, balance float64) (*model.Caisse, error) {
+	updated, err := r.Resolver.caisseService.UpdateBalance(ctx, balance)
+	if err != nil {
+		return nil, err
+	}
+
+	// Load transactions
+	transactions, err := r.Resolver.caisseService.GetTransactions(ctx, nil, nil)
+	if err != nil {
+		transactions = []*models.CaisseTransaction{}
+	}
+
+	transactionsModel := make([]*model.CaisseTransaction, 0, len(transactions))
+	for _, t := range transactions {
+		transactionsModel = append(transactionsModel, &model.CaisseTransaction{
+			ID:            t.ID.Hex(),
+			Type:          t.Type,
+			Amount:        t.Amount,
+			Description:   t.Description,
+			Reference:     t.Reference,
+			ReferenceType: t.ReferenceType,
+			Date:          t.Date.Format(time.RFC3339),
+			CreatedBy:     t.CreatedBy,
+		})
+	}
+
+	return &model.Caisse{
+		ID:           updated.ID.Hex(),
+		Balance:      updated.Balance,
+		TotalEntrees: updated.TotalEntrees,
+		TotalSorties: updated.TotalSorties,
+		CreatedAt:    updated.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:    updated.UpdatedAt.Format(time.RFC3339),
+		Transactions: transactionsModel,
+	}, nil
+}
+
 // Me is the resolver for the me field.
 func (r *queryResolver) Me(ctx context.Context) (*model.User, error) {
 	// Try to read Authorization header from gqlgen operation context
@@ -520,6 +665,10 @@ func (r *queryResolver) Clients(ctx context.Context, filter *model.FilterInput, 
 			ID:                 c.ID.Hex(),
 			ClientID:           c.ClientID,
 			Name:               c.Name,
+			Phone:              c.Phone,
+			Nn:                 c.NN,
+			Address:            c.Address,
+			Avatar:             c.Avatar,
 			JoinDate:           c.JoinDate.Format(time.RFC3339),
 			SponsorID:          nil,
 			Position:           c.Position,
@@ -542,6 +691,10 @@ func (r *queryResolver) Clients(ctx context.Context, filter *model.FilterInput, 
 					ID:          sponsor.ID.Hex(),
 					ClientID:    sponsor.ClientID,
 					Name:        sponsor.Name,
+					Phone:       sponsor.Phone,
+					Nn:          sponsor.NN,
+					Address:     sponsor.Address,
+					Avatar:      sponsor.Avatar,
 					JoinDate:    sponsor.JoinDate.Format(time.RFC3339),
 					Position:    sponsor.Position,
 					BinaryPairs: int32(sponsor.BinaryPairs),
@@ -551,11 +704,89 @@ func (r *queryResolver) Clients(ctx context.Context, filter *model.FilterInput, 
 		if c.LeftChildID != nil {
 			lid := c.LeftChildID.Hex()
 			mc.LeftChildID = &lid
+			// hydrate left child
+			leftChild, err := r.Resolver.clientService.GetByID(ctx, lid)
+			if err == nil && leftChild != nil {
+				mc.LeftChild = &model.Client{
+					ID:          leftChild.ID.Hex(),
+					ClientID:    leftChild.ClientID,
+					Name:        leftChild.Name,
+					Phone:       leftChild.Phone,
+					Nn:          leftChild.NN,
+					Address:     leftChild.Address,
+					Avatar:      leftChild.Avatar,
+					JoinDate:    leftChild.JoinDate.Format(time.RFC3339),
+					Position:    leftChild.Position,
+					BinaryPairs: int32(leftChild.BinaryPairs),
+				}
+			}
 		}
 		if c.RightChildID != nil {
 			rid := c.RightChildID.Hex()
 			mc.RightChildID = &rid
+			// hydrate right child
+			rightChild, err := r.Resolver.clientService.GetByID(ctx, rid)
+			if err == nil && rightChild != nil {
+				mc.RightChild = &model.Client{
+					ID:          rightChild.ID.Hex(),
+					ClientID:    rightChild.ClientID,
+					Name:        rightChild.Name,
+					Phone:       rightChild.Phone,
+					Nn:          rightChild.NN,
+					Address:     rightChild.Address,
+					Avatar:      rightChild.Avatar,
+					JoinDate:    rightChild.JoinDate.Format(time.RFC3339),
+					Position:    rightChild.Position,
+					BinaryPairs: int32(rightChild.BinaryPairs),
+				}
+			}
 		}
+		// Load transactions (payments)
+		payments, err := r.Resolver.paymentService.GetByClientID(ctx, c.ID.Hex())
+		if err == nil {
+			mc.Transactions = make([]*model.Payment, 0, len(payments))
+			for _, p := range payments {
+				mc.Transactions = append(mc.Transactions, &model.Payment{
+					ID:          p.ID.Hex(),
+					ClientID:    p.ClientID.Hex(),
+					Amount:      p.Amount,
+					Date:        p.Date.Format(time.RFC3339),
+					Method:      p.Method,
+					Status:      p.Status,
+					Description: p.Description,
+				})
+			}
+		} else {
+			mc.Transactions = []*model.Payment{}
+		}
+
+		// Load purchases (sales)
+		sales, err := r.Resolver.saleService.GetByClientID(ctx, c.ID.Hex())
+		if err == nil {
+			mc.Purchases = make([]*model.Sale, 0, len(sales))
+			for _, s := range sales {
+				var prodIdStr *string
+				if s.ProductID != nil {
+					sid := s.ProductID.Hex()
+					prodIdStr = &sid
+				}
+				mc.Purchases = append(mc.Purchases, &model.Sale{
+					ID:        s.ID.Hex(),
+					ClientID:  s.ClientID.Hex(),
+					SponsorID: s.SponsorID.Hex(),
+					ProductID: prodIdStr,
+					Amount:    s.Amount,
+					Quantity:  int32(s.Quantity),
+					Side:      s.Side,
+					Date:      s.Date.Format(time.RFC3339),
+					Status:    s.Status,
+					Note:      s.Note,
+				})
+			}
+		} else {
+			mc.Purchases = []*model.Sale{}
+		}
+
 		out = append(out, mc)
 	}
 	return out, nil
@@ -589,6 +820,10 @@ func (r *queryResolver) Client(ctx context.Context, id string) (*model.Client, e
 				ID:          sponsor.ID.Hex(),
 				ClientID:    sponsor.ClientID,
 				Name:        sponsor.Name,
+				Phone:       sponsor.Phone,
+				Nn:          sponsor.NN,
+				Address:     sponsor.Address,
+				Avatar:      sponsor.Avatar,
 				JoinDate:    sponsor.JoinDate.Format(time.RFC3339),
 				Position:    sponsor.Position,
 				BinaryPairs: int32(sponsor.BinaryPairs),
@@ -598,22 +833,362 @@ func (r *queryResolver) Client(ctx context.Context, id string) (*model.Client, e
 	if c.LeftChildID != nil {
 		lid := c.LeftChildID.Hex()
 		mc.LeftChildID = &lid
+		// hydrate left child
+		leftChild, err := r.Resolver.clientService.GetByID(ctx, lid)
+		if err == nil && leftChild != nil {
+			mc.LeftChild = &model.Client{
+				ID:          leftChild.ID.Hex(),
+				ClientID:    leftChild.ClientID,
+				Name:        leftChild.Name,
+				Phone:       leftChild.Phone,
+				Nn:          leftChild.NN,
+				Address:     leftChild.Address,
+				Avatar:      leftChild.Avatar,
+				JoinDate:    leftChild.JoinDate.Format(time.RFC3339),
+				Position:    leftChild.Position,
+				BinaryPairs: int32(leftChild.BinaryPairs),
+			}
+		}
 	}
 	if c.RightChildID != nil {
 		rid := c.RightChildID.Hex()
 		mc.RightChildID = &rid
+		// hydrate right child
+		rightChild, err := r.Resolver.clientService.GetByID(ctx, rid)
+		if err == nil && rightChild != nil {
+			mc.RightChild = &model.Client{
+				ID:          rightChild.ID.Hex(),
+				ClientID:    rightChild.ClientID,
+				Name:        rightChild.Name,
+				Phone:       rightChild.Phone,
+				Nn:          rightChild.NN,
+				Address:     rightChild.Address,
+				Avatar:      rightChild.Avatar,
+				JoinDate:    rightChild.JoinDate.Format(time.RFC3339),
+				Position:    rightChild.Position,
+				BinaryPairs: int32(rightChild.BinaryPairs),
+			}
+		}
 	}
+
+	// Load transactions (payments)
+	payments, err := r.Resolver.paymentService.GetByClientID(ctx, c.ID.Hex())
+	if err == nil {
+		mc.Transactions = make([]*model.Payment, 0, len(payments))
+		for _, p := range payments {
+			mc.Transactions = append(mc.Transactions, &model.Payment{
+				ID:          p.ID.Hex(),
+				ClientID:    p.ClientID.Hex(),
+				Amount:      p.Amount,
+				Date:        p.Date.Format(time.RFC3339),
+				Method:      p.Method,
+				Status:      p.Status,
+				Description: p.Description,
+			})
+		}
+	} else {
+		mc.Transactions = []*model.Payment{}
+	}
+
+	// Load purchases (sales)
+	sales, err := r.Resolver.saleService.GetByClientID(ctx, c.ID.Hex())
+	if err == nil {
+		mc.Purchases = make([]*model.Sale, 0, len(sales))
+		for _, s := range sales {
+			var prodIdStr *string
+			if s.ProductID != nil {
+				sid := s.ProductID.Hex()
+				prodIdStr = &sid
+			}
+			mc.Purchases = append(mc.Purchases, &model.Sale{
+				ID:        s.ID.Hex(),
+				ClientID:  s.ClientID.Hex(),
+				SponsorID: s.SponsorID.Hex(),
+				ProductID: prodIdStr,
+				Amount:    s.Amount,
+				Quantity:  int32(s.Quantity),
+				Side:      s.Side,
+				Date:      s.Date.Format(time.RFC3339),
+				Status:    s.Status,
+				Note:      s.Note,
+			})
+		}
+	} else {
+		mc.Purchases = []*model.Sale{}
+	}
+
 	return mc, nil
 }
 
 // Sales is the resolver for the sales field.
 func (r *queryResolver) Sales(ctx context.Context, filter *model.FilterInput, paging *model.PagingInput) ([]*model.Sale, error) {
-	return []*model.Sale{}, nil
+	// Convert GraphQL model to internal model
+	var filterModel *models.FilterInput
+	if filter != nil {
+		filterModel = &models.FilterInput{
+			Search:   filter.Search,
+			DateFrom: nil, // Convert if needed
+			DateTo:   nil, // Convert if needed
+			Status:   filter.Status,
+		}
+	}
+
+	var pagingModel *models.PagingInput
+	if paging != nil {
+		var page *int
+		var limit *int
+		if paging.Page != nil {
+			p := int(*paging.Page)
+			page = &p
+		}
+		if paging.Limit != nil {
+			l := int(*paging.Limit)
+			limit = &l
+		}
+		pagingModel = &models.PagingInput{
+			Page:  page,
+			Limit: limit,
+		}
+	}
+
+	sales, err := r.Resolver.saleService.GetAll(ctx, filterModel, pagingModel)
+	if err != nil {
+		return nil, err
+	}
+
+	out := make([]*model.Sale, 0, len(sales))
+	for _, s := range sales {
+		var prodIdStr *string
+		if s.ProductID != nil {
+			sid := s.ProductID.Hex()
+			prodIdStr = &sid
+		}
+
+		sale := &model.Sale{
+			ID:        s.ID.Hex(),
+			ClientID:  s.ClientID.Hex(),
+			SponsorID: s.SponsorID.Hex(),
+			ProductID: prodIdStr,
+			Amount:    s.Amount,
+			Quantity:  int32(s.Quantity),
+			Side:      s.Side,
+			Date:      s.Date.Format(time.RFC3339),
+			Status:    s.Status,
+			Note:      s.Note,
+		}
+
+		// Hydrate client
+		client, err := r.Resolver.clientService.GetByID(ctx, s.ClientID.Hex())
+		if err == nil && client != nil {
+			sale.Client = &model.Client{
+				ID:                 client.ID.Hex(),
+				ClientID:           client.ClientID,
+				Name:               client.Name,
+				Phone:              client.Phone,
+				Nn:                 client.NN,
+				Address:            client.Address,
+				Avatar:             client.Avatar,
+				SponsorID:          nil,
+				Position:           client.Position,
+				LeftChildID:        nil,
+				RightChildID:       nil,
+				JoinDate:           client.JoinDate.Format(time.RFC3339),
+				TotalEarnings:      client.TotalEarnings,
+				WalletBalance:      client.WalletBalance,
+				Points:             client.Points,
+				NetworkVolumeLeft:  client.NetworkVolumeLeft,
+				NetworkVolumeRight: client.NetworkVolumeRight,
+				BinaryPairs:        int32(client.BinaryPairs),
+			}
+			if client.SponsorID != nil {
+				sid := client.SponsorID.Hex()
+				sale.Client.SponsorID = &sid
+			}
+			if client.LeftChildID != nil {
+				lid := client.LeftChildID.Hex()
+				sale.Client.LeftChildID = &lid
+			}
+			if client.RightChildID != nil {
+				rid := client.RightChildID.Hex()
+				sale.Client.RightChildID = &rid
+			}
+		}
+
+		// Hydrate sponsor
+		sponsor, err := r.Resolver.clientService.GetByID(ctx, s.SponsorID.Hex())
+		if err == nil && sponsor != nil {
+			sale.Sponsor = &model.Client{
+				ID:                 sponsor.ID.Hex(),
+				ClientID:           sponsor.ClientID,
+				Name:               sponsor.Name,
+				Phone:              sponsor.Phone,
+				Nn:                 sponsor.NN,
+				Address:            sponsor.Address,
+				Avatar:             sponsor.Avatar,
+				SponsorID:          nil,
+				Position:           sponsor.Position,
+				LeftChildID:        nil,
+				RightChildID:       nil,
+				JoinDate:           sponsor.JoinDate.Format(time.RFC3339),
+				TotalEarnings:      sponsor.TotalEarnings,
+				WalletBalance:      sponsor.WalletBalance,
+				Points:             sponsor.Points,
+				NetworkVolumeLeft:  sponsor.NetworkVolumeLeft,
+				NetworkVolumeRight: sponsor.NetworkVolumeRight,
+				BinaryPairs:        int32(sponsor.BinaryPairs),
+			}
+			if sponsor.SponsorID != nil {
+				sid := sponsor.SponsorID.Hex()
+				sale.Sponsor.SponsorID = &sid
+			}
+			if sponsor.LeftChildID != nil {
+				lid := sponsor.LeftChildID.Hex()
+				sale.Sponsor.LeftChildID = &lid
+			}
+			if sponsor.RightChildID != nil {
+				rid := sponsor.RightChildID.Hex()
+				sale.Sponsor.RightChildID = &rid
+			}
+		}
+
+		// Hydrate product
+		if s.ProductID != nil {
+			product, err := r.Resolver.productService.GetByID(ctx, s.ProductID.Hex())
+			if err == nil && product != nil {
+				sale.Product = &model.Product{
+					ID:          product.ID.Hex(),
+					Name:        product.Name,
+					Description: product.Description,
+					Price:       product.Price,
+					Stock:       int32(product.Stock),
+					Points:      product.Points,
+					ImageURL:    product.ImageURL,
+					CreatedAt:   product.CreatedAt.Format(time.RFC3339),
+					UpdatedAt:   product.UpdatedAt.Format(time.RFC3339),
+				}
+			}
+		}
+
+		out = append(out, sale)
+	}
+	return out, nil
 }
 
 // Sale is the resolver for the sale field.
 func (r *queryResolver) Sale(ctx context.Context, id string) (*model.Sale, error) {
-	return nil, nil
+	s, err := r.Resolver.saleService.GetByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	var prodIdStr *string
+	if s.ProductID != nil {
+		sid := s.ProductID.Hex()
+		prodIdStr = &sid
+	}
+
+	sale := &model.Sale{
+		ID:        s.ID.Hex(),
+		ClientID:  s.ClientID.Hex(),
+		SponsorID: s.SponsorID.Hex(),
+		ProductID: prodIdStr,
+		Amount:    s.Amount,
+		Quantity:  int32(s.Quantity),
+		Side:      s.Side,
+		Date:      s.Date.Format(time.RFC3339),
+		Status:    s.Status,
+		Note:      s.Note,
+	}
+
+	// Hydrate client
+	client, err := r.Resolver.clientService.GetByID(ctx, s.ClientID.Hex())
+	if err == nil && client != nil {
+		sale.Client = &model.Client{
+			ID:                 client.ID.Hex(),
+			ClientID:           client.ClientID,
+			Name:               client.Name,
+			Phone:              client.Phone,
+			Nn:                 client.NN,
+			Address:            client.Address,
+			Avatar:             client.Avatar,
+			SponsorID:          nil,
+			Position:           client.Position,
+			LeftChildID:        nil,
+			RightChildID:       nil,
+			JoinDate:           client.JoinDate.Format(time.RFC3339),
+			TotalEarnings:      client.TotalEarnings,
+			WalletBalance:      client.WalletBalance,
+			Points:             client.Points,
+			NetworkVolumeLeft:  client.NetworkVolumeLeft,
+			NetworkVolumeRight: client.NetworkVolumeRight,
+			BinaryPairs:        int32(client.BinaryPairs),
+		}
+		if client.SponsorID != nil {
+			sid := client.SponsorID.Hex()
+			sale.Client.SponsorID = &sid
+		}
+		if client.LeftChildID != nil {
+			lid := client.LeftChildID.Hex()
+			sale.Client.LeftChildID = &lid
+		}
+		if client.RightChildID != nil {
+			rid := client.RightChildID.Hex()
+			sale.Client.RightChildID = &rid
+		}
+	}
+
+	// Hydrate sponsor
+	sponsor, err := r.Resolver.clientService.GetByID(ctx, s.SponsorID.Hex())
+	if err == nil && sponsor != nil {
+		sale.Sponsor = &model.Client{
+			ID:                 sponsor.ID.Hex(),
+			ClientID:           sponsor.ClientID,
+			Name:               sponsor.Name,
+			SponsorID:          nil,
+			Position:           sponsor.Position,
+			LeftChildID:        nil,
+			RightChildID:       nil,
+			JoinDate:           sponsor.JoinDate.Format(time.RFC3339),
+			TotalEarnings:      sponsor.TotalEarnings,
+			WalletBalance:      sponsor.WalletBalance,
+			Points:             sponsor.Points,
+			NetworkVolumeLeft:  sponsor.NetworkVolumeLeft,
+			NetworkVolumeRight: sponsor.NetworkVolumeRight,
+			BinaryPairs:        int32(sponsor.BinaryPairs),
+		}
+		if sponsor.SponsorID != nil {
+			sid := sponsor.SponsorID.Hex()
+			sale.Sponsor.SponsorID = &sid
+		}
+		if sponsor.LeftChildID != nil {
+			lid := sponsor.LeftChildID.Hex()
+			sale.Sponsor.LeftChildID = &lid
+		}
+		if sponsor.RightChildID != nil {
+			rid := sponsor.RightChildID.Hex()
+			sale.Sponsor.RightChildID = &rid
+		}
+	}
+
+	// Hydrate product
+	if s.ProductID != nil {
+		product, err := r.Resolver.productService.GetByID(ctx, s.ProductID.Hex())
+		if err == nil && product != nil {
+			sale.Product = &model.Product{
+				ID:          product.ID.Hex(),
+				Name:        product.Name,
+				Description: product.Description,
+				Price:       product.Price,
+				Stock:       int32(product.Stock),
+				Points:      product.Points,
+				ImageURL:    product.ImageURL,
+				CreatedAt:   product.CreatedAt.Format(time.RFC3339),
+				UpdatedAt:   product.UpdatedAt.Format(time.RFC3339),
+			}
+		}
+	}
+
+	return sale, nil
 }
 
 // Payments is the resolver for the payments field.
@@ -684,6 +1259,96 @@ func (r *queryResolver) DashboardData(ctx context.Context) (*model.DashboardStat
 		TotalRevenue: 0, ActiveClients: int32(s.ActiveClients), LeftVolume: 0, RightVolume: 0, BinaryPairs: 0, NetworkBalance: 0,
 		MonthlySales: []*model.MonthlySales{}, NetworkGrowth: []*model.NetworkGrowth{}, SalesStatus: &model.SalesStatus{}, TopProducts: []*model.TopProduct{}, RecentActivity: []*model.RecentActivity{},
 	}, nil
+}
+
+// Caisse is the resolver for the caisse field.
+func (r *queryResolver) Caisse(ctx context.Context) (*model.Caisse, error) {
+	caisse, err := r.Resolver.caisseService.GetCaisse(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Load transactions
+	transactions, err := r.Resolver.caisseService.GetTransactions(ctx, nil, nil)
+	if err != nil {
+		transactions = []*models.CaisseTransaction{}
+	}
+
+	transactionsModel := make([]*model.CaisseTransaction, 0, len(transactions))
+	for _, t := range transactions {
+		transactionsModel = append(transactionsModel, &model.CaisseTransaction{
+			ID:            t.ID.Hex(),
+			Type:          t.Type,
+			Amount:        t.Amount,
+			Description:   t.Description,
+			Reference:     t.Reference,
+			ReferenceType: t.ReferenceType,
+			Date:          t.Date.Format(time.RFC3339),
+			CreatedBy:     t.CreatedBy,
+		})
+	}
+
+	return &model.Caisse{
+		ID:           caisse.ID.Hex(),
+		Balance:      caisse.Balance,
+		TotalEntrees: caisse.TotalEntrees,
+		TotalSorties: caisse.TotalSorties,
+		CreatedAt:    caisse.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:    caisse.UpdatedAt.Format(time.RFC3339),
+		Transactions: transactionsModel,
+	}, nil
+}
+
+// CaisseTransactions is the resolver for the caisseTransactions field.
+func (r *queryResolver) CaisseTransactions(ctx context.Context, filter *model.FilterInput, paging *model.PagingInput) ([]*model.CaisseTransaction, error) {
+	// Convert GraphQL model to internal model
+	var filterModel *models.FilterInput
+	if filter != nil {
+		filterModel = &models.FilterInput{
+			Search:   filter.Search,
+			DateFrom: nil, // Convert if needed
+			DateTo:   nil, // Convert if needed
+			Status:   filter.Status,
+		}
+	}
+
+	var pagingModel *models.PagingInput
+	if paging != nil {
+		var page *int
+		var limit *int
+		if paging.Page != nil {
+			p := int(*paging.Page)
+			page = &p
+		}
+		if paging.Limit != nil {
+			l := int(*paging.Limit)
+			limit = &l
+		}
+		pagingModel = &models.PagingInput{
+			Page:  page,
+			Limit: limit,
+		}
+	}
+
+	transactions, err := r.Resolver.caisseService.GetTransactions(ctx, filterModel, pagingModel)
+	if err != nil {
+		return nil, err
+	}
+
+	out := make([]*model.CaisseTransaction, 0, len(transactions))
+	for _, t := range transactions {
+		out = append(out, &model.CaisseTransaction{
+			ID:            t.ID.Hex(),
+			Type:          t.Type,
+			Amount:        t.Amount,
+			Description:   t.Description,
+			Reference:     t.Reference,
+			ReferenceType: t.ReferenceType,
+			Date:          t.Date.Format(time.RFC3339),
+			CreatedBy:     t.CreatedBy,
+		})
+	}
+	return out, nil
 }
 
 // OnNewSale is the resolver for the onNewSale field.

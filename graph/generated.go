@@ -54,7 +54,30 @@ type ComplexityRoot struct {
 		User         func(childComplexity int) int
 	}
 
+	Caisse struct {
+		Balance      func(childComplexity int) int
+		CreatedAt    func(childComplexity int) int
+		ID           func(childComplexity int) int
+		TotalEntrees func(childComplexity int) int
+		TotalSorties func(childComplexity int) int
+		Transactions func(childComplexity int) int
+		UpdatedAt    func(childComplexity int) int
+	}
+
+	CaisseTransaction struct {
+		Amount        func(childComplexity int) int
+		CreatedBy     func(childComplexity int) int
+		Date          func(childComplexity int) int
+		Description   func(childComplexity int) int
+		ID            func(childComplexity int) int
+		Reference     func(childComplexity int) int
+		ReferenceType func(childComplexity int) int
+		Type          func(childComplexity int) int
+	}
+
 	Client struct {
+		Address            func(childComplexity int) int
+		Avatar             func(childComplexity int) int
 		BinaryPairs        func(childComplexity int) int
 		ClientID           func(childComplexity int) int
 		ID                 func(childComplexity int) int
@@ -64,13 +87,17 @@ type ComplexityRoot struct {
 		Name               func(childComplexity int) int
 		NetworkVolumeLeft  func(childComplexity int) int
 		NetworkVolumeRight func(childComplexity int) int
+		Nn                 func(childComplexity int) int
+		Phone              func(childComplexity int) int
 		Points             func(childComplexity int) int
 		Position           func(childComplexity int) int
+		Purchases          func(childComplexity int) int
 		RightChild         func(childComplexity int) int
 		RightChildID       func(childComplexity int) int
 		Sponsor            func(childComplexity int) int
 		SponsorID          func(childComplexity int) int
 		TotalEarnings      func(childComplexity int) int
+		Transactions       func(childComplexity int) int
 		WalletBalance      func(childComplexity int) int
 	}
 
@@ -117,6 +144,8 @@ type ComplexityRoot struct {
 	}
 
 	Mutation struct {
+		CaisseAddTransaction     func(childComplexity int, input model.CaisseTransactionInput) int
+		CaisseUpdateBalance      func(childComplexity int, balance float64) int
 		ClientCreate             func(childComplexity int, input model.ClientInput) int
 		ClientDelete             func(childComplexity int, id string) int
 		ClientLogin              func(childComplexity int, input model.ClientLoginInput) int
@@ -166,19 +195,21 @@ type ComplexityRoot struct {
 	}
 
 	Query struct {
-		Client         func(childComplexity int, id string) int
-		Clients        func(childComplexity int, filter *model.FilterInput, paging *model.PagingInput) int
-		Commission     func(childComplexity int, id string) int
-		Commissions    func(childComplexity int, filter *model.FilterInput, paging *model.PagingInput) int
-		DashboardData  func(childComplexity int) int
-		DashboardStats func(childComplexity int, rangeArg *string) int
-		Me             func(childComplexity int) int
-		Payment        func(childComplexity int, id string) int
-		Payments       func(childComplexity int, filter *model.FilterInput, paging *model.PagingInput) int
-		Product        func(childComplexity int, id string) int
-		Products       func(childComplexity int, filter *model.FilterInput, paging *model.PagingInput) int
-		Sale           func(childComplexity int, id string) int
-		Sales          func(childComplexity int, filter *model.FilterInput, paging *model.PagingInput) int
+		Caisse             func(childComplexity int) int
+		CaisseTransactions func(childComplexity int, filter *model.FilterInput, paging *model.PagingInput) int
+		Client             func(childComplexity int, id string) int
+		Clients            func(childComplexity int, filter *model.FilterInput, paging *model.PagingInput) int
+		Commission         func(childComplexity int, id string) int
+		Commissions        func(childComplexity int, filter *model.FilterInput, paging *model.PagingInput) int
+		DashboardData      func(childComplexity int) int
+		DashboardStats     func(childComplexity int, rangeArg *string) int
+		Me                 func(childComplexity int) int
+		Payment            func(childComplexity int, id string) int
+		Payments           func(childComplexity int, filter *model.FilterInput, paging *model.PagingInput) int
+		Product            func(childComplexity int, id string) int
+		Products           func(childComplexity int, filter *model.FilterInput, paging *model.PagingInput) int
+		Sale               func(childComplexity int, id string) int
+		Sales              func(childComplexity int, filter *model.FilterInput, paging *model.PagingInput) int
 	}
 
 	RecentActivity struct {
@@ -248,6 +279,8 @@ type MutationResolver interface {
 	PaymentDelete(ctx context.Context, id string) (bool, error)
 	CommissionManualCreate(ctx context.Context, input model.CommissionInput) (*model.Commission, error)
 	RunBinaryCommissionCheck(ctx context.Context, clientID string) (*model.CommissionResult, error)
+	CaisseAddTransaction(ctx context.Context, input model.CaisseTransactionInput) (*model.CaisseTransaction, error)
+	CaisseUpdateBalance(ctx context.Context, balance float64) (*model.Caisse, error)
 }
 type QueryResolver interface {
 	Me(ctx context.Context) (*model.User, error)
@@ -263,6 +296,8 @@ type QueryResolver interface {
 	Commission(ctx context.Context, id string) (*model.Commission, error)
 	DashboardStats(ctx context.Context, rangeArg *string) (*model.DashboardStats, error)
 	DashboardData(ctx context.Context) (*model.DashboardStats, error)
+	Caisse(ctx context.Context) (*model.Caisse, error)
+	CaisseTransactions(ctx context.Context, filter *model.FilterInput, paging *model.PagingInput) ([]*model.CaisseTransaction, error)
 }
 type SubscriptionResolver interface {
 	OnNewSale(ctx context.Context) (<-chan *model.Sale, error)
@@ -307,6 +342,110 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.complexity.AuthPayload.User(childComplexity), true
 
+	case "Caisse.balance":
+		if e.complexity.Caisse.Balance == nil {
+			break
+		}
+
+		return e.complexity.Caisse.Balance(childComplexity), true
+	case "Caisse.createdAt":
+		if e.complexity.Caisse.CreatedAt == nil {
+			break
+		}
+
+		return e.complexity.Caisse.CreatedAt(childComplexity), true
+	case "Caisse.id":
+		if e.complexity.Caisse.ID == nil {
+			break
+		}
+
+		return e.complexity.Caisse.ID(childComplexity), true
+	case "Caisse.totalEntrees":
+		if e.complexity.Caisse.TotalEntrees == nil {
+			break
+		}
+
+		return e.complexity.Caisse.TotalEntrees(childComplexity), true
+	case "Caisse.totalSorties":
+		if e.complexity.Caisse.TotalSorties == nil {
+			break
+		}
+
+		return e.complexity.Caisse.TotalSorties(childComplexity), true
+	case "Caisse.transactions":
+		if e.complexity.Caisse.Transactions == nil {
+			break
+		}
+
+		return e.complexity.Caisse.Transactions(childComplexity), true
+	case "Caisse.updatedAt":
+		if e.complexity.Caisse.UpdatedAt == nil {
+			break
+		}
+
+		return e.complexity.Caisse.UpdatedAt(childComplexity), true
+
+	case "CaisseTransaction.amount":
+		if e.complexity.CaisseTransaction.Amount == nil {
+			break
+		}
+
+		return e.complexity.CaisseTransaction.Amount(childComplexity), true
+	case "CaisseTransaction.createdBy":
+		if e.complexity.CaisseTransaction.CreatedBy == nil {
+			break
+		}
+
+		return e.complexity.CaisseTransaction.CreatedBy(childComplexity), true
+	case "CaisseTransaction.date":
+		if e.complexity.CaisseTransaction.Date == nil {
+			break
+		}
+
+		return e.complexity.CaisseTransaction.Date(childComplexity), true
+	case "CaisseTransaction.description":
+		if e.complexity.CaisseTransaction.Description == nil {
+			break
+		}
+
+		return e.complexity.CaisseTransaction.Description(childComplexity), true
+	case "CaisseTransaction.id":
+		if e.complexity.CaisseTransaction.ID == nil {
+			break
+		}
+
+		return e.complexity.CaisseTransaction.ID(childComplexity), true
+	case "CaisseTransaction.reference":
+		if e.complexity.CaisseTransaction.Reference == nil {
+			break
+		}
+
+		return e.complexity.CaisseTransaction.Reference(childComplexity), true
+	case "CaisseTransaction.referenceType":
+		if e.complexity.CaisseTransaction.ReferenceType == nil {
+			break
+		}
+
+		return e.complexity.CaisseTransaction.ReferenceType(childComplexity), true
+	case "CaisseTransaction.type":
+		if e.complexity.CaisseTransaction.Type == nil {
+			break
+		}
+
+		return e.complexity.CaisseTransaction.Type(childComplexity), true
+
+	case "Client.address":
+		if e.complexity.Client.Address == nil {
+			break
+		}
+
+		return e.complexity.Client.Address(childComplexity), true
+	case "Client.avatar":
+		if e.complexity.Client.Avatar == nil {
+			break
+		}
+
+		return e.complexity.Client.Avatar(childComplexity), true
 	case "Client.binaryPairs":
 		if e.complexity.Client.BinaryPairs == nil {
 			break
@@ -361,6 +500,18 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Client.NetworkVolumeRight(childComplexity), true
+	case "Client.nn":
+		if e.complexity.Client.Nn == nil {
+			break
+		}
+
+		return e.complexity.Client.Nn(childComplexity), true
+	case "Client.phone":
+		if e.complexity.Client.Phone == nil {
+			break
+		}
+
+		return e.complexity.Client.Phone(childComplexity), true
 	case "Client.points":
 		if e.complexity.Client.Points == nil {
 			break
@@ -373,6 +524,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Client.Position(childComplexity), true
+	case "Client.purchases":
+		if e.complexity.Client.Purchases == nil {
+			break
+		}
+
+		return e.complexity.Client.Purchases(childComplexity), true
 	case "Client.rightChild":
 		if e.complexity.Client.RightChild == nil {
 			break
@@ -403,6 +560,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Client.TotalEarnings(childComplexity), true
+	case "Client.transactions":
+		if e.complexity.Client.Transactions == nil {
+			break
+		}
+
+		return e.complexity.Client.Transactions(childComplexity), true
 	case "Client.walletBalance":
 		if e.complexity.Client.WalletBalance == nil {
 			break
@@ -594,6 +757,28 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.complexity.MonthlySales.Sales(childComplexity), true
 
+	case "Mutation.caisseAddTransaction":
+		if e.complexity.Mutation.CaisseAddTransaction == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_caisseAddTransaction_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.CaisseAddTransaction(childComplexity, args["input"].(model.CaisseTransactionInput)), true
+	case "Mutation.caisseUpdateBalance":
+		if e.complexity.Mutation.CaisseUpdateBalance == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_caisseUpdateBalance_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.CaisseUpdateBalance(childComplexity, args["balance"].(float64)), true
 	case "Mutation.clientCreate":
 		if e.complexity.Mutation.ClientCreate == nil {
 			break
@@ -905,6 +1090,23 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.complexity.Product.UpdatedAt(childComplexity), true
 
+	case "Query.caisse":
+		if e.complexity.Query.Caisse == nil {
+			break
+		}
+
+		return e.complexity.Query.Caisse(childComplexity), true
+	case "Query.caisseTransactions":
+		if e.complexity.Query.CaisseTransactions == nil {
+			break
+		}
+
+		args, err := ec.field_Query_caisseTransactions_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Query.CaisseTransactions(childComplexity, args["filter"].(*model.FilterInput), args["paging"].(*model.PagingInput)), true
 	case "Query.client":
 		if e.complexity.Query.Client == nil {
 			break
@@ -1233,6 +1435,7 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 	opCtx := graphql.GetOperationContext(ctx)
 	ec := executionContext{opCtx, e, 0, 0, make(chan graphql.DeferredResult)}
 	inputUnmarshalMap := graphql.BuildUnmarshalerMap(
+		ec.unmarshalInputCaisseTransactionInput,
 		ec.unmarshalInputClientInput,
 		ec.unmarshalInputClientLoginInput,
 		ec.unmarshalInputCommissionInput,
@@ -1375,6 +1578,28 @@ var parsedSchema = gqlparser.MustLoadSchema(sources...)
 // endregion ************************** generated!.gotpl **************************
 
 // region    ***************************** args.gotpl *****************************
+
+func (ec *executionContext) field_Mutation_caisseAddTransaction_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNCaisseTransactionInput2bureauᚋgraphᚋmodelᚐCaisseTransactionInput)
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_caisseUpdateBalance_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "balance", ec.unmarshalNFloat2float64)
+	if err != nil {
+		return nil, err
+	}
+	args["balance"] = arg0
+	return args, nil
+}
 
 func (ec *executionContext) field_Mutation_clientCreate_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
@@ -1591,6 +1816,22 @@ func (ec *executionContext) field_Query___type_args(ctx context.Context, rawArgs
 		return nil, err
 	}
 	args["name"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Query_caisseTransactions_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "filter", ec.unmarshalOFilterInput2ᚖbureauᚋgraphᚋmodelᚐFilterInput)
+	if err != nil {
+		return nil, err
+	}
+	args["filter"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "paging", ec.unmarshalOPagingInput2ᚖbureauᚋgraphᚋmodelᚐPagingInput)
+	if err != nil {
+		return nil, err
+	}
+	args["paging"] = arg1
 	return args, nil
 }
 
@@ -1891,6 +2132,459 @@ func (ec *executionContext) fieldContext_AuthPayload_user(_ context.Context, fie
 	return fc, nil
 }
 
+func (ec *executionContext) _Caisse_id(ctx context.Context, field graphql.CollectedField, obj *model.Caisse) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Caisse_id,
+		func(ctx context.Context) (any, error) {
+			return obj.ID, nil
+		},
+		nil,
+		ec.marshalNID2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Caisse_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Caisse",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type ID does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Caisse_balance(ctx context.Context, field graphql.CollectedField, obj *model.Caisse) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Caisse_balance,
+		func(ctx context.Context) (any, error) {
+			return obj.Balance, nil
+		},
+		nil,
+		ec.marshalNFloat2float64,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Caisse_balance(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Caisse",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Float does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Caisse_totalEntrees(ctx context.Context, field graphql.CollectedField, obj *model.Caisse) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Caisse_totalEntrees,
+		func(ctx context.Context) (any, error) {
+			return obj.TotalEntrees, nil
+		},
+		nil,
+		ec.marshalNFloat2float64,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Caisse_totalEntrees(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Caisse",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Float does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Caisse_totalSorties(ctx context.Context, field graphql.CollectedField, obj *model.Caisse) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Caisse_totalSorties,
+		func(ctx context.Context) (any, error) {
+			return obj.TotalSorties, nil
+		},
+		nil,
+		ec.marshalNFloat2float64,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Caisse_totalSorties(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Caisse",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Float does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Caisse_createdAt(ctx context.Context, field graphql.CollectedField, obj *model.Caisse) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Caisse_createdAt,
+		func(ctx context.Context) (any, error) {
+			return obj.CreatedAt, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Caisse_createdAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Caisse",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Caisse_updatedAt(ctx context.Context, field graphql.CollectedField, obj *model.Caisse) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Caisse_updatedAt,
+		func(ctx context.Context) (any, error) {
+			return obj.UpdatedAt, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Caisse_updatedAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Caisse",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Caisse_transactions(ctx context.Context, field graphql.CollectedField, obj *model.Caisse) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Caisse_transactions,
+		func(ctx context.Context) (any, error) {
+			return obj.Transactions, nil
+		},
+		nil,
+		ec.marshalNCaisseTransaction2ᚕᚖbureauᚋgraphᚋmodelᚐCaisseTransactionᚄ,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Caisse_transactions(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Caisse",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_CaisseTransaction_id(ctx, field)
+			case "type":
+				return ec.fieldContext_CaisseTransaction_type(ctx, field)
+			case "amount":
+				return ec.fieldContext_CaisseTransaction_amount(ctx, field)
+			case "description":
+				return ec.fieldContext_CaisseTransaction_description(ctx, field)
+			case "reference":
+				return ec.fieldContext_CaisseTransaction_reference(ctx, field)
+			case "referenceType":
+				return ec.fieldContext_CaisseTransaction_referenceType(ctx, field)
+			case "date":
+				return ec.fieldContext_CaisseTransaction_date(ctx, field)
+			case "createdBy":
+				return ec.fieldContext_CaisseTransaction_createdBy(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type CaisseTransaction", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _CaisseTransaction_id(ctx context.Context, field graphql.CollectedField, obj *model.CaisseTransaction) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_CaisseTransaction_id,
+		func(ctx context.Context) (any, error) {
+			return obj.ID, nil
+		},
+		nil,
+		ec.marshalNID2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_CaisseTransaction_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CaisseTransaction",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type ID does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _CaisseTransaction_type(ctx context.Context, field graphql.CollectedField, obj *model.CaisseTransaction) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_CaisseTransaction_type,
+		func(ctx context.Context) (any, error) {
+			return obj.Type, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_CaisseTransaction_type(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CaisseTransaction",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _CaisseTransaction_amount(ctx context.Context, field graphql.CollectedField, obj *model.CaisseTransaction) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_CaisseTransaction_amount,
+		func(ctx context.Context) (any, error) {
+			return obj.Amount, nil
+		},
+		nil,
+		ec.marshalNFloat2float64,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_CaisseTransaction_amount(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CaisseTransaction",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Float does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _CaisseTransaction_description(ctx context.Context, field graphql.CollectedField, obj *model.CaisseTransaction) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_CaisseTransaction_description,
+		func(ctx context.Context) (any, error) {
+			return obj.Description, nil
+		},
+		nil,
+		ec.marshalOString2ᚖstring,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_CaisseTransaction_description(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CaisseTransaction",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _CaisseTransaction_reference(ctx context.Context, field graphql.CollectedField, obj *model.CaisseTransaction) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_CaisseTransaction_reference,
+		func(ctx context.Context) (any, error) {
+			return obj.Reference, nil
+		},
+		nil,
+		ec.marshalOString2ᚖstring,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_CaisseTransaction_reference(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CaisseTransaction",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _CaisseTransaction_referenceType(ctx context.Context, field graphql.CollectedField, obj *model.CaisseTransaction) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_CaisseTransaction_referenceType,
+		func(ctx context.Context) (any, error) {
+			return obj.ReferenceType, nil
+		},
+		nil,
+		ec.marshalOString2ᚖstring,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_CaisseTransaction_referenceType(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CaisseTransaction",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _CaisseTransaction_date(ctx context.Context, field graphql.CollectedField, obj *model.CaisseTransaction) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_CaisseTransaction_date,
+		func(ctx context.Context) (any, error) {
+			return obj.Date, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_CaisseTransaction_date(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CaisseTransaction",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _CaisseTransaction_createdBy(ctx context.Context, field graphql.CollectedField, obj *model.CaisseTransaction) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_CaisseTransaction_createdBy,
+		func(ctx context.Context) (any, error) {
+			return obj.CreatedBy, nil
+		},
+		nil,
+		ec.marshalOString2ᚖstring,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_CaisseTransaction_createdBy(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CaisseTransaction",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Client_id(ctx context.Context, field graphql.CollectedField, obj *model.Client) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -1966,6 +2660,122 @@ func (ec *executionContext) _Client_name(ctx context.Context, field graphql.Coll
 }
 
 func (ec *executionContext) fieldContext_Client_name(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Client",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Client_phone(ctx context.Context, field graphql.CollectedField, obj *model.Client) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Client_phone,
+		func(ctx context.Context) (any, error) {
+			return obj.Phone, nil
+		},
+		nil,
+		ec.marshalOString2ᚖstring,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_Client_phone(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Client",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Client_nn(ctx context.Context, field graphql.CollectedField, obj *model.Client) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Client_nn,
+		func(ctx context.Context) (any, error) {
+			return obj.Nn, nil
+		},
+		nil,
+		ec.marshalOString2ᚖstring,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_Client_nn(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Client",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Client_address(ctx context.Context, field graphql.CollectedField, obj *model.Client) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Client_address,
+		func(ctx context.Context) (any, error) {
+			return obj.Address, nil
+		},
+		nil,
+		ec.marshalOString2ᚖstring,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_Client_address(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Client",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Client_avatar(ctx context.Context, field graphql.CollectedField, obj *model.Client) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Client_avatar,
+		func(ctx context.Context) (any, error) {
+			return obj.Avatar, nil
+		},
+		nil,
+		ec.marshalOString2ᚖstring,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_Client_avatar(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "Client",
 		Field:      field,
@@ -2327,6 +3137,14 @@ func (ec *executionContext) fieldContext_Client_sponsor(_ context.Context, field
 				return ec.fieldContext_Client_clientId(ctx, field)
 			case "name":
 				return ec.fieldContext_Client_name(ctx, field)
+			case "phone":
+				return ec.fieldContext_Client_phone(ctx, field)
+			case "nn":
+				return ec.fieldContext_Client_nn(ctx, field)
+			case "address":
+				return ec.fieldContext_Client_address(ctx, field)
+			case "avatar":
+				return ec.fieldContext_Client_avatar(ctx, field)
 			case "sponsorId":
 				return ec.fieldContext_Client_sponsorId(ctx, field)
 			case "position":
@@ -2355,6 +3173,10 @@ func (ec *executionContext) fieldContext_Client_sponsor(_ context.Context, field
 				return ec.fieldContext_Client_leftChild(ctx, field)
 			case "rightChild":
 				return ec.fieldContext_Client_rightChild(ctx, field)
+			case "transactions":
+				return ec.fieldContext_Client_transactions(ctx, field)
+			case "purchases":
+				return ec.fieldContext_Client_purchases(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Client", field.Name)
 		},
@@ -2392,6 +3214,14 @@ func (ec *executionContext) fieldContext_Client_leftChild(_ context.Context, fie
 				return ec.fieldContext_Client_clientId(ctx, field)
 			case "name":
 				return ec.fieldContext_Client_name(ctx, field)
+			case "phone":
+				return ec.fieldContext_Client_phone(ctx, field)
+			case "nn":
+				return ec.fieldContext_Client_nn(ctx, field)
+			case "address":
+				return ec.fieldContext_Client_address(ctx, field)
+			case "avatar":
+				return ec.fieldContext_Client_avatar(ctx, field)
 			case "sponsorId":
 				return ec.fieldContext_Client_sponsorId(ctx, field)
 			case "position":
@@ -2420,6 +3250,10 @@ func (ec *executionContext) fieldContext_Client_leftChild(_ context.Context, fie
 				return ec.fieldContext_Client_leftChild(ctx, field)
 			case "rightChild":
 				return ec.fieldContext_Client_rightChild(ctx, field)
+			case "transactions":
+				return ec.fieldContext_Client_transactions(ctx, field)
+			case "purchases":
+				return ec.fieldContext_Client_purchases(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Client", field.Name)
 		},
@@ -2457,6 +3291,14 @@ func (ec *executionContext) fieldContext_Client_rightChild(_ context.Context, fi
 				return ec.fieldContext_Client_clientId(ctx, field)
 			case "name":
 				return ec.fieldContext_Client_name(ctx, field)
+			case "phone":
+				return ec.fieldContext_Client_phone(ctx, field)
+			case "nn":
+				return ec.fieldContext_Client_nn(ctx, field)
+			case "address":
+				return ec.fieldContext_Client_address(ctx, field)
+			case "avatar":
+				return ec.fieldContext_Client_avatar(ctx, field)
 			case "sponsorId":
 				return ec.fieldContext_Client_sponsorId(ctx, field)
 			case "position":
@@ -2485,8 +3327,116 @@ func (ec *executionContext) fieldContext_Client_rightChild(_ context.Context, fi
 				return ec.fieldContext_Client_leftChild(ctx, field)
 			case "rightChild":
 				return ec.fieldContext_Client_rightChild(ctx, field)
+			case "transactions":
+				return ec.fieldContext_Client_transactions(ctx, field)
+			case "purchases":
+				return ec.fieldContext_Client_purchases(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Client", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Client_transactions(ctx context.Context, field graphql.CollectedField, obj *model.Client) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Client_transactions,
+		func(ctx context.Context) (any, error) {
+			return obj.Transactions, nil
+		},
+		nil,
+		ec.marshalNPayment2ᚕᚖbureauᚋgraphᚋmodelᚐPaymentᚄ,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Client_transactions(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Client",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_Payment_id(ctx, field)
+			case "clientId":
+				return ec.fieldContext_Payment_clientId(ctx, field)
+			case "amount":
+				return ec.fieldContext_Payment_amount(ctx, field)
+			case "date":
+				return ec.fieldContext_Payment_date(ctx, field)
+			case "method":
+				return ec.fieldContext_Payment_method(ctx, field)
+			case "status":
+				return ec.fieldContext_Payment_status(ctx, field)
+			case "description":
+				return ec.fieldContext_Payment_description(ctx, field)
+			case "client":
+				return ec.fieldContext_Payment_client(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type Payment", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Client_purchases(ctx context.Context, field graphql.CollectedField, obj *model.Client) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Client_purchases,
+		func(ctx context.Context) (any, error) {
+			return obj.Purchases, nil
+		},
+		nil,
+		ec.marshalNSale2ᚕᚖbureauᚋgraphᚋmodelᚐSaleᚄ,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Client_purchases(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Client",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_Sale_id(ctx, field)
+			case "clientId":
+				return ec.fieldContext_Sale_clientId(ctx, field)
+			case "sponsorId":
+				return ec.fieldContext_Sale_sponsorId(ctx, field)
+			case "productId":
+				return ec.fieldContext_Sale_productId(ctx, field)
+			case "amount":
+				return ec.fieldContext_Sale_amount(ctx, field)
+			case "quantity":
+				return ec.fieldContext_Sale_quantity(ctx, field)
+			case "side":
+				return ec.fieldContext_Sale_side(ctx, field)
+			case "date":
+				return ec.fieldContext_Sale_date(ctx, field)
+			case "status":
+				return ec.fieldContext_Sale_status(ctx, field)
+			case "note":
+				return ec.fieldContext_Sale_note(ctx, field)
+			case "client":
+				return ec.fieldContext_Sale_client(ctx, field)
+			case "sponsor":
+				return ec.fieldContext_Sale_sponsor(ctx, field)
+			case "product":
+				return ec.fieldContext_Sale_product(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type Sale", field.Name)
 		},
 	}
 	return fc, nil
@@ -2725,6 +3675,14 @@ func (ec *executionContext) fieldContext_Commission_client(_ context.Context, fi
 				return ec.fieldContext_Client_clientId(ctx, field)
 			case "name":
 				return ec.fieldContext_Client_name(ctx, field)
+			case "phone":
+				return ec.fieldContext_Client_phone(ctx, field)
+			case "nn":
+				return ec.fieldContext_Client_nn(ctx, field)
+			case "address":
+				return ec.fieldContext_Client_address(ctx, field)
+			case "avatar":
+				return ec.fieldContext_Client_avatar(ctx, field)
 			case "sponsorId":
 				return ec.fieldContext_Client_sponsorId(ctx, field)
 			case "position":
@@ -2753,6 +3711,10 @@ func (ec *executionContext) fieldContext_Commission_client(_ context.Context, fi
 				return ec.fieldContext_Client_leftChild(ctx, field)
 			case "rightChild":
 				return ec.fieldContext_Client_rightChild(ctx, field)
+			case "transactions":
+				return ec.fieldContext_Client_transactions(ctx, field)
+			case "purchases":
+				return ec.fieldContext_Client_purchases(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Client", field.Name)
 		},
@@ -2790,6 +3752,14 @@ func (ec *executionContext) fieldContext_Commission_sourceClient(_ context.Conte
 				return ec.fieldContext_Client_clientId(ctx, field)
 			case "name":
 				return ec.fieldContext_Client_name(ctx, field)
+			case "phone":
+				return ec.fieldContext_Client_phone(ctx, field)
+			case "nn":
+				return ec.fieldContext_Client_nn(ctx, field)
+			case "address":
+				return ec.fieldContext_Client_address(ctx, field)
+			case "avatar":
+				return ec.fieldContext_Client_avatar(ctx, field)
 			case "sponsorId":
 				return ec.fieldContext_Client_sponsorId(ctx, field)
 			case "position":
@@ -2818,6 +3788,10 @@ func (ec *executionContext) fieldContext_Commission_sourceClient(_ context.Conte
 				return ec.fieldContext_Client_leftChild(ctx, field)
 			case "rightChild":
 				return ec.fieldContext_Client_rightChild(ctx, field)
+			case "transactions":
+				return ec.fieldContext_Client_transactions(ctx, field)
+			case "purchases":
+				return ec.fieldContext_Client_purchases(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Client", field.Name)
 		},
@@ -3817,6 +4791,14 @@ func (ec *executionContext) fieldContext_Mutation_clientCreate(ctx context.Conte
 				return ec.fieldContext_Client_clientId(ctx, field)
 			case "name":
 				return ec.fieldContext_Client_name(ctx, field)
+			case "phone":
+				return ec.fieldContext_Client_phone(ctx, field)
+			case "nn":
+				return ec.fieldContext_Client_nn(ctx, field)
+			case "address":
+				return ec.fieldContext_Client_address(ctx, field)
+			case "avatar":
+				return ec.fieldContext_Client_avatar(ctx, field)
 			case "sponsorId":
 				return ec.fieldContext_Client_sponsorId(ctx, field)
 			case "position":
@@ -3845,6 +4827,10 @@ func (ec *executionContext) fieldContext_Mutation_clientCreate(ctx context.Conte
 				return ec.fieldContext_Client_leftChild(ctx, field)
 			case "rightChild":
 				return ec.fieldContext_Client_rightChild(ctx, field)
+			case "transactions":
+				return ec.fieldContext_Client_transactions(ctx, field)
+			case "purchases":
+				return ec.fieldContext_Client_purchases(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Client", field.Name)
 		},
@@ -3894,6 +4880,14 @@ func (ec *executionContext) fieldContext_Mutation_clientUpdate(ctx context.Conte
 				return ec.fieldContext_Client_clientId(ctx, field)
 			case "name":
 				return ec.fieldContext_Client_name(ctx, field)
+			case "phone":
+				return ec.fieldContext_Client_phone(ctx, field)
+			case "nn":
+				return ec.fieldContext_Client_nn(ctx, field)
+			case "address":
+				return ec.fieldContext_Client_address(ctx, field)
+			case "avatar":
+				return ec.fieldContext_Client_avatar(ctx, field)
 			case "sponsorId":
 				return ec.fieldContext_Client_sponsorId(ctx, field)
 			case "position":
@@ -3922,6 +4916,10 @@ func (ec *executionContext) fieldContext_Mutation_clientUpdate(ctx context.Conte
 				return ec.fieldContext_Client_leftChild(ctx, field)
 			case "rightChild":
 				return ec.fieldContext_Client_rightChild(ctx, field)
+			case "transactions":
+				return ec.fieldContext_Client_transactions(ctx, field)
+			case "purchases":
+				return ec.fieldContext_Client_purchases(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Client", field.Name)
 		},
@@ -4429,6 +5427,122 @@ func (ec *executionContext) fieldContext_Mutation_runBinaryCommissionCheck(ctx c
 	return fc, nil
 }
 
+func (ec *executionContext) _Mutation_caisseAddTransaction(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Mutation_caisseAddTransaction,
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.resolvers.Mutation().CaisseAddTransaction(ctx, fc.Args["input"].(model.CaisseTransactionInput))
+		},
+		nil,
+		ec.marshalNCaisseTransaction2ᚖbureauᚋgraphᚋmodelᚐCaisseTransaction,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Mutation_caisseAddTransaction(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_CaisseTransaction_id(ctx, field)
+			case "type":
+				return ec.fieldContext_CaisseTransaction_type(ctx, field)
+			case "amount":
+				return ec.fieldContext_CaisseTransaction_amount(ctx, field)
+			case "description":
+				return ec.fieldContext_CaisseTransaction_description(ctx, field)
+			case "reference":
+				return ec.fieldContext_CaisseTransaction_reference(ctx, field)
+			case "referenceType":
+				return ec.fieldContext_CaisseTransaction_referenceType(ctx, field)
+			case "date":
+				return ec.fieldContext_CaisseTransaction_date(ctx, field)
+			case "createdBy":
+				return ec.fieldContext_CaisseTransaction_createdBy(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type CaisseTransaction", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_caisseAddTransaction_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_caisseUpdateBalance(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Mutation_caisseUpdateBalance,
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.resolvers.Mutation().CaisseUpdateBalance(ctx, fc.Args["balance"].(float64))
+		},
+		nil,
+		ec.marshalNCaisse2ᚖbureauᚋgraphᚋmodelᚐCaisse,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Mutation_caisseUpdateBalance(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_Caisse_id(ctx, field)
+			case "balance":
+				return ec.fieldContext_Caisse_balance(ctx, field)
+			case "totalEntrees":
+				return ec.fieldContext_Caisse_totalEntrees(ctx, field)
+			case "totalSorties":
+				return ec.fieldContext_Caisse_totalSorties(ctx, field)
+			case "createdAt":
+				return ec.fieldContext_Caisse_createdAt(ctx, field)
+			case "updatedAt":
+				return ec.fieldContext_Caisse_updatedAt(ctx, field)
+			case "transactions":
+				return ec.fieldContext_Caisse_transactions(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type Caisse", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_caisseUpdateBalance_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _NetworkGrowth_month(ctx context.Context, field graphql.CollectedField, obj *model.NetworkGrowth) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -4749,6 +5863,14 @@ func (ec *executionContext) fieldContext_Payment_client(_ context.Context, field
 				return ec.fieldContext_Client_clientId(ctx, field)
 			case "name":
 				return ec.fieldContext_Client_name(ctx, field)
+			case "phone":
+				return ec.fieldContext_Client_phone(ctx, field)
+			case "nn":
+				return ec.fieldContext_Client_nn(ctx, field)
+			case "address":
+				return ec.fieldContext_Client_address(ctx, field)
+			case "avatar":
+				return ec.fieldContext_Client_avatar(ctx, field)
 			case "sponsorId":
 				return ec.fieldContext_Client_sponsorId(ctx, field)
 			case "position":
@@ -4777,6 +5899,10 @@ func (ec *executionContext) fieldContext_Payment_client(_ context.Context, field
 				return ec.fieldContext_Client_leftChild(ctx, field)
 			case "rightChild":
 				return ec.fieldContext_Client_rightChild(ctx, field)
+			case "transactions":
+				return ec.fieldContext_Client_transactions(ctx, field)
+			case "purchases":
+				return ec.fieldContext_Client_purchases(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Client", field.Name)
 		},
@@ -5239,6 +6365,14 @@ func (ec *executionContext) fieldContext_Query_clients(ctx context.Context, fiel
 				return ec.fieldContext_Client_clientId(ctx, field)
 			case "name":
 				return ec.fieldContext_Client_name(ctx, field)
+			case "phone":
+				return ec.fieldContext_Client_phone(ctx, field)
+			case "nn":
+				return ec.fieldContext_Client_nn(ctx, field)
+			case "address":
+				return ec.fieldContext_Client_address(ctx, field)
+			case "avatar":
+				return ec.fieldContext_Client_avatar(ctx, field)
 			case "sponsorId":
 				return ec.fieldContext_Client_sponsorId(ctx, field)
 			case "position":
@@ -5267,6 +6401,10 @@ func (ec *executionContext) fieldContext_Query_clients(ctx context.Context, fiel
 				return ec.fieldContext_Client_leftChild(ctx, field)
 			case "rightChild":
 				return ec.fieldContext_Client_rightChild(ctx, field)
+			case "transactions":
+				return ec.fieldContext_Client_transactions(ctx, field)
+			case "purchases":
+				return ec.fieldContext_Client_purchases(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Client", field.Name)
 		},
@@ -5316,6 +6454,14 @@ func (ec *executionContext) fieldContext_Query_client(ctx context.Context, field
 				return ec.fieldContext_Client_clientId(ctx, field)
 			case "name":
 				return ec.fieldContext_Client_name(ctx, field)
+			case "phone":
+				return ec.fieldContext_Client_phone(ctx, field)
+			case "nn":
+				return ec.fieldContext_Client_nn(ctx, field)
+			case "address":
+				return ec.fieldContext_Client_address(ctx, field)
+			case "avatar":
+				return ec.fieldContext_Client_avatar(ctx, field)
 			case "sponsorId":
 				return ec.fieldContext_Client_sponsorId(ctx, field)
 			case "position":
@@ -5344,6 +6490,10 @@ func (ec *executionContext) fieldContext_Query_client(ctx context.Context, field
 				return ec.fieldContext_Client_leftChild(ctx, field)
 			case "rightChild":
 				return ec.fieldContext_Client_rightChild(ctx, field)
+			case "transactions":
+				return ec.fieldContext_Client_transactions(ctx, field)
+			case "purchases":
+				return ec.fieldContext_Client_purchases(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Client", field.Name)
 		},
@@ -5870,6 +7020,110 @@ func (ec *executionContext) fieldContext_Query_dashboardData(_ context.Context, 
 			}
 			return nil, fmt.Errorf("no field named %q was found under type DashboardStats", field.Name)
 		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_caisse(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Query_caisse,
+		func(ctx context.Context) (any, error) {
+			return ec.resolvers.Query().Caisse(ctx)
+		},
+		nil,
+		ec.marshalNCaisse2ᚖbureauᚋgraphᚋmodelᚐCaisse,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Query_caisse(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_Caisse_id(ctx, field)
+			case "balance":
+				return ec.fieldContext_Caisse_balance(ctx, field)
+			case "totalEntrees":
+				return ec.fieldContext_Caisse_totalEntrees(ctx, field)
+			case "totalSorties":
+				return ec.fieldContext_Caisse_totalSorties(ctx, field)
+			case "createdAt":
+				return ec.fieldContext_Caisse_createdAt(ctx, field)
+			case "updatedAt":
+				return ec.fieldContext_Caisse_updatedAt(ctx, field)
+			case "transactions":
+				return ec.fieldContext_Caisse_transactions(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type Caisse", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_caisseTransactions(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Query_caisseTransactions,
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.resolvers.Query().CaisseTransactions(ctx, fc.Args["filter"].(*model.FilterInput), fc.Args["paging"].(*model.PagingInput))
+		},
+		nil,
+		ec.marshalNCaisseTransaction2ᚕᚖbureauᚋgraphᚋmodelᚐCaisseTransactionᚄ,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Query_caisseTransactions(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_CaisseTransaction_id(ctx, field)
+			case "type":
+				return ec.fieldContext_CaisseTransaction_type(ctx, field)
+			case "amount":
+				return ec.fieldContext_CaisseTransaction_amount(ctx, field)
+			case "description":
+				return ec.fieldContext_CaisseTransaction_description(ctx, field)
+			case "reference":
+				return ec.fieldContext_CaisseTransaction_reference(ctx, field)
+			case "referenceType":
+				return ec.fieldContext_CaisseTransaction_referenceType(ctx, field)
+			case "date":
+				return ec.fieldContext_CaisseTransaction_date(ctx, field)
+			case "createdBy":
+				return ec.fieldContext_CaisseTransaction_createdBy(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type CaisseTransaction", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_caisseTransactions_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
 	}
 	return fc, nil
 }
@@ -6447,6 +7701,14 @@ func (ec *executionContext) fieldContext_Sale_client(_ context.Context, field gr
 				return ec.fieldContext_Client_clientId(ctx, field)
 			case "name":
 				return ec.fieldContext_Client_name(ctx, field)
+			case "phone":
+				return ec.fieldContext_Client_phone(ctx, field)
+			case "nn":
+				return ec.fieldContext_Client_nn(ctx, field)
+			case "address":
+				return ec.fieldContext_Client_address(ctx, field)
+			case "avatar":
+				return ec.fieldContext_Client_avatar(ctx, field)
 			case "sponsorId":
 				return ec.fieldContext_Client_sponsorId(ctx, field)
 			case "position":
@@ -6475,6 +7737,10 @@ func (ec *executionContext) fieldContext_Sale_client(_ context.Context, field gr
 				return ec.fieldContext_Client_leftChild(ctx, field)
 			case "rightChild":
 				return ec.fieldContext_Client_rightChild(ctx, field)
+			case "transactions":
+				return ec.fieldContext_Client_transactions(ctx, field)
+			case "purchases":
+				return ec.fieldContext_Client_purchases(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Client", field.Name)
 		},
@@ -6512,6 +7778,14 @@ func (ec *executionContext) fieldContext_Sale_sponsor(_ context.Context, field g
 				return ec.fieldContext_Client_clientId(ctx, field)
 			case "name":
 				return ec.fieldContext_Client_name(ctx, field)
+			case "phone":
+				return ec.fieldContext_Client_phone(ctx, field)
+			case "nn":
+				return ec.fieldContext_Client_nn(ctx, field)
+			case "address":
+				return ec.fieldContext_Client_address(ctx, field)
+			case "avatar":
+				return ec.fieldContext_Client_avatar(ctx, field)
 			case "sponsorId":
 				return ec.fieldContext_Client_sponsorId(ctx, field)
 			case "position":
@@ -6540,6 +7814,10 @@ func (ec *executionContext) fieldContext_Sale_sponsor(_ context.Context, field g
 				return ec.fieldContext_Client_leftChild(ctx, field)
 			case "rightChild":
 				return ec.fieldContext_Client_rightChild(ctx, field)
+			case "transactions":
+				return ec.fieldContext_Client_transactions(ctx, field)
+			case "purchases":
+				return ec.fieldContext_Client_purchases(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Client", field.Name)
 		},
@@ -8438,6 +9716,61 @@ func (ec *executionContext) fieldContext___Type_isOneOf(_ context.Context, field
 
 // region    **************************** input.gotpl *****************************
 
+func (ec *executionContext) unmarshalInputCaisseTransactionInput(ctx context.Context, obj any) (model.CaisseTransactionInput, error) {
+	var it model.CaisseTransactionInput
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"type", "amount", "description", "reference", "referenceType"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "type":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("type"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Type = data
+		case "amount":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("amount"))
+			data, err := ec.unmarshalNFloat2float64(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Amount = data
+		case "description":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("description"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Description = data
+		case "reference":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("reference"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Reference = data
+		case "referenceType":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("referenceType"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.ReferenceType = data
+		}
+	}
+
+	return it, nil
+}
+
 func (ec *executionContext) unmarshalInputClientInput(ctx context.Context, obj any) (model.ClientInput, error) {
 	var it model.ClientInput
 	asMap := map[string]any{}
@@ -8445,7 +9778,7 @@ func (ec *executionContext) unmarshalInputClientInput(ctx context.Context, obj a
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"name", "password", "position", "sponsorId"}
+	fieldsInOrder := [...]string{"name", "password", "position", "sponsorId", "phone", "nn", "address", "avatar"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -8480,6 +9813,34 @@ func (ec *executionContext) unmarshalInputClientInput(ctx context.Context, obj a
 				return it, err
 			}
 			it.SponsorID = data
+		case "phone":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("phone"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Phone = data
+		case "nn":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("nn"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Nn = data
+		case "address":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("address"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Address = data
+		case "avatar":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("avatar"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Avatar = data
 		}
 	}
 
@@ -8947,6 +10308,137 @@ func (ec *executionContext) _AuthPayload(ctx context.Context, sel ast.SelectionS
 	return out
 }
 
+var caisseImplementors = []string{"Caisse"}
+
+func (ec *executionContext) _Caisse(ctx context.Context, sel ast.SelectionSet, obj *model.Caisse) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, caisseImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("Caisse")
+		case "id":
+			out.Values[i] = ec._Caisse_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "balance":
+			out.Values[i] = ec._Caisse_balance(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "totalEntrees":
+			out.Values[i] = ec._Caisse_totalEntrees(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "totalSorties":
+			out.Values[i] = ec._Caisse_totalSorties(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "createdAt":
+			out.Values[i] = ec._Caisse_createdAt(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "updatedAt":
+			out.Values[i] = ec._Caisse_updatedAt(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "transactions":
+			out.Values[i] = ec._Caisse_transactions(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var caisseTransactionImplementors = []string{"CaisseTransaction"}
+
+func (ec *executionContext) _CaisseTransaction(ctx context.Context, sel ast.SelectionSet, obj *model.CaisseTransaction) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, caisseTransactionImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("CaisseTransaction")
+		case "id":
+			out.Values[i] = ec._CaisseTransaction_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "type":
+			out.Values[i] = ec._CaisseTransaction_type(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "amount":
+			out.Values[i] = ec._CaisseTransaction_amount(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "description":
+			out.Values[i] = ec._CaisseTransaction_description(ctx, field, obj)
+		case "reference":
+			out.Values[i] = ec._CaisseTransaction_reference(ctx, field, obj)
+		case "referenceType":
+			out.Values[i] = ec._CaisseTransaction_referenceType(ctx, field, obj)
+		case "date":
+			out.Values[i] = ec._CaisseTransaction_date(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "createdBy":
+			out.Values[i] = ec._CaisseTransaction_createdBy(ctx, field, obj)
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
 var clientImplementors = []string{"Client"}
 
 func (ec *executionContext) _Client(ctx context.Context, sel ast.SelectionSet, obj *model.Client) graphql.Marshaler {
@@ -8973,6 +10465,14 @@ func (ec *executionContext) _Client(ctx context.Context, sel ast.SelectionSet, o
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		case "phone":
+			out.Values[i] = ec._Client_phone(ctx, field, obj)
+		case "nn":
+			out.Values[i] = ec._Client_nn(ctx, field, obj)
+		case "address":
+			out.Values[i] = ec._Client_address(ctx, field, obj)
+		case "avatar":
+			out.Values[i] = ec._Client_avatar(ctx, field, obj)
 		case "sponsorId":
 			out.Values[i] = ec._Client_sponsorId(ctx, field, obj)
 		case "position":
@@ -9022,6 +10522,16 @@ func (ec *executionContext) _Client(ctx context.Context, sel ast.SelectionSet, o
 			out.Values[i] = ec._Client_leftChild(ctx, field, obj)
 		case "rightChild":
 			out.Values[i] = ec._Client_rightChild(ctx, field, obj)
+		case "transactions":
+			out.Values[i] = ec._Client_transactions(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "purchases":
+			out.Values[i] = ec._Client_purchases(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -9459,6 +10969,20 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 		case "runBinaryCommissionCheck":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_runBinaryCommissionCheck(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "caisseAddTransaction":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_caisseAddTransaction(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "caisseUpdateBalance":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_caisseUpdateBalance(ctx, field)
 			})
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
@@ -9957,6 +11481,50 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 					}
 				}()
 				res = ec._Query_dashboardData(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "caisse":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_caisse(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "caisseTransactions":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_caisseTransactions(ctx, field)
 				if res == graphql.Null {
 					atomic.AddUint32(&fs.Invalids, 1)
 				}
@@ -10674,6 +12242,83 @@ func (ec *executionContext) marshalNBoolean2bool(ctx context.Context, sel ast.Se
 		}
 	}
 	return res
+}
+
+func (ec *executionContext) marshalNCaisse2bureauᚋgraphᚋmodelᚐCaisse(ctx context.Context, sel ast.SelectionSet, v model.Caisse) graphql.Marshaler {
+	return ec._Caisse(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNCaisse2ᚖbureauᚋgraphᚋmodelᚐCaisse(ctx context.Context, sel ast.SelectionSet, v *model.Caisse) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._Caisse(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNCaisseTransaction2bureauᚋgraphᚋmodelᚐCaisseTransaction(ctx context.Context, sel ast.SelectionSet, v model.CaisseTransaction) graphql.Marshaler {
+	return ec._CaisseTransaction(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNCaisseTransaction2ᚕᚖbureauᚋgraphᚋmodelᚐCaisseTransactionᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.CaisseTransaction) graphql.Marshaler {
+	ret := make(graphql.Array, len(v))
+	var wg sync.WaitGroup
+	isLen1 := len(v) == 1
+	if !isLen1 {
+		wg.Add(len(v))
+	}
+	for i := range v {
+		i := i
+		fc := &graphql.FieldContext{
+			Index:  &i,
+			Result: &v[i],
+		}
+		ctx := graphql.WithFieldContext(ctx, fc)
+		f := func(i int) {
+			defer func() {
+				if r := recover(); r != nil {
+					ec.Error(ctx, ec.Recover(ctx, r))
+					ret = nil
+				}
+			}()
+			if !isLen1 {
+				defer wg.Done()
+			}
+			ret[i] = ec.marshalNCaisseTransaction2ᚖbureauᚋgraphᚋmodelᚐCaisseTransaction(ctx, sel, v[i])
+		}
+		if isLen1 {
+			f(i)
+		} else {
+			go f(i)
+		}
+
+	}
+	wg.Wait()
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNCaisseTransaction2ᚖbureauᚋgraphᚋmodelᚐCaisseTransaction(ctx context.Context, sel ast.SelectionSet, v *model.CaisseTransaction) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._CaisseTransaction(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalNCaisseTransactionInput2bureauᚋgraphᚋmodelᚐCaisseTransactionInput(ctx context.Context, v any) (model.CaisseTransactionInput, error) {
+	res, err := ec.unmarshalInputCaisseTransactionInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
 }
 
 func (ec *executionContext) marshalNClient2bureauᚋgraphᚋmodelᚐClient(ctx context.Context, sel ast.SelectionSet, v model.Client) graphql.Marshaler {

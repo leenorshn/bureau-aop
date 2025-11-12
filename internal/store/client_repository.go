@@ -108,6 +108,20 @@ func (r *ClientRepository) Update(ctx context.Context, id string, client *models
 			"name": client.Name,
 		},
 	}
+	
+	// Ajouter les nouveaux champs s'ils sont fournis
+	if client.Phone != nil {
+		update["$set"].(bson.M)["phone"] = client.Phone
+	}
+	if client.NN != nil {
+		update["$set"].(bson.M)["nn"] = client.NN
+	}
+	if client.Address != nil {
+		update["$set"].(bson.M)["address"] = client.Address
+	}
+	if client.Avatar != nil {
+		update["$set"].(bson.M)["avatar"] = client.Avatar
+	}
 
 	var updatedClient models.Client
 	err = r.collection.FindOneAndUpdate(ctx, bson.M{"_id": objectID}, update, options.FindOneAndUpdate().SetReturnDocument(options.After)).Decode(&updatedClient)
