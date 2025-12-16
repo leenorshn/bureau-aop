@@ -77,4 +77,3 @@ Pour plus de détails, consultez:
 - `TROUBLESHOOTING_SSH.md` - Guide complet de dépannage
 - `DIGITALOCEAN_QUICKSTART.md` - Guide de démarrage rapide
 
-

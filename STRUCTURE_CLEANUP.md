@@ -71,4 +71,3 @@ Gardez tout tel quel. Les deux architectures peuvent coexister.
    go run main.go
    ```
 
-

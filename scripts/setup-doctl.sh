@@ -150,4 +150,3 @@ echo "  doctl compute droplet list      # Lister les Droplets"
 echo "  doctl apps list                 # Lister les apps"
 echo "  ./scripts/deploy-doctl.sh      # Déployer l'application"
 
-

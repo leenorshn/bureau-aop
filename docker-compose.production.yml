@@ -58,4 +58,3 @@ networks:
   bureau-network:
     driver: bridge
 
-

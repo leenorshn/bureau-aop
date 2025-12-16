@@ -152,4 +152,3 @@ Cette architecture sépare l'application monolithique en microservices indépend
 4. **Phase 4**: Optimiser et ajouter le cache
 
 
-

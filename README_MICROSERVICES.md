@@ -161,4 +161,3 @@ Les deux peuvent coexister pendant la migration.
 - `MICROSERVICES_MIGRATION.md`: Guide de migration
 
 
-

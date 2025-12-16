@@ -263,4 +263,3 @@ sudo journalctl -u nginx -f  # Voir les logs
 
 **Votre application est maintenant déployée! 🎉**
 
-

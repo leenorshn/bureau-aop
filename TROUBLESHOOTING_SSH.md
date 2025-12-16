@@ -211,4 +211,3 @@ Si le problème persiste:
 2. Vérifiez les logs du serveur: `journalctl -u ssh`
 3. Contactez le support DigitalOcean si le problème vient de leur infrastructure
 
-

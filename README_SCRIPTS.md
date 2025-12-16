@@ -202,4 +202,3 @@ kill -9 <PID>
 - Le fichier `.services.pid` est créé automatiquement et contient les PIDs des services
 - Les scripts gèrent proprement l'arrêt avec Ctrl+C
 
-
