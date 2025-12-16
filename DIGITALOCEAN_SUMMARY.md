@@ -132,3 +132,4 @@ En cas de problème:
 3. Vérifiez les services: `docker compose ps`
 4. Consultez `DIGITALOCEAN_DEPLOYMENT.md` section Dépannage
 
+

@@ -440,3 +440,4 @@ caisseUpdateBalance(balance: Float!): Caisse!
 
 
 
+

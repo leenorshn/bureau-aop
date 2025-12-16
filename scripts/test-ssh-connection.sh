@@ -104,3 +104,4 @@ echo ""
 info "✅ Tous les tests sont passés!"
 info "Vous pouvez maintenant déployer avec: ./scripts/deploy-digitalocean.sh"
 
+
