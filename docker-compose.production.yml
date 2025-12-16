@@ -1,0 +1,61 @@
+version: '3.8'
+
+services:
+  tree-service:
+    build:
+      context: ./services/tree-service
+      dockerfile: Dockerfile
+    container_name: bureau-tree-service-prod
+    restart: unless-stopped
+    environment:
+      MONGO_URI: ${MONGO_URI}
+      MONGO_DB_NAME: ${MONGO_DB_NAME:-bureau}
+      TREE_SERVICE_PORT: ${TREE_SERVICE_PORT:-8082}
+      REDIS_URL: ${REDIS_URL:-}
+    networks:
+      - bureau-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8082/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  gateway:
+    build:
+      context: ./gateway
+      dockerfile: Dockerfile
+    container_name: bureau-gateway-prod
+    restart: unless-stopped
+    ports:
+      - "${GATEWAY_PORT:-8080}:8080"
+    environment:
+      TREE_SERVICE_URL: http://tree-service:8082
+      GATEWAY_PORT: ${GATEWAY_PORT:-8080}
+    depends_on:
+      tree-service:
+        condition: service_healthy
+    networks:
+      - bureau-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/query || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  bureau-network:
+    driver: bridge
+
+

@@ -97,6 +97,69 @@ func (r *ClientRepository) GetAll(ctx context.Context, filter *models.FilterInpu
 	return clients, nil
 }
 
+// GetNetworkVolumesStats calculates total left and right network volumes using aggregation
+func (r *ClientRepository) GetNetworkVolumesStats(ctx context.Context) (leftVolume, rightVolume float64, err error) {
+	pipeline := []bson.M{
+		{"$group": bson.M{
+			"_id":         nil,
+			"leftVolume":  bson.M{"$sum": "$networkVolumeLeft"},
+			"rightVolume": bson.M{"$sum": "$networkVolumeRight"},
+		}},
+	}
+
+	cursor, err := r.collection.Aggregate(ctx, pipeline)
+	if err != nil {
+		return 0, 0, err
+	}
+	defer cursor.Close(ctx)
+
+	var result []bson.M
+	if err = cursor.All(ctx, &result); err != nil {
+		return 0, 0, err
+	}
+
+	if len(result) == 0 {
+		return 0, 0, nil
+	}
+
+	leftVol, _ := result[0]["leftVolume"].(float64)
+	rightVol, _ := result[0]["rightVolume"].(float64)
+
+	return leftVol, rightVol, nil
+}
+
+// GetTotalBinaryPairs calculates total binary pairs using aggregation
+func (r *ClientRepository) GetTotalBinaryPairs(ctx context.Context) (int64, error) {
+	pipeline := []bson.M{
+		{"$group": bson.M{
+			"_id":        nil,
+			"totalPairs": bson.M{"$sum": "$binaryPairs"},
+		}},
+	}
+
+	cursor, err := r.collection.Aggregate(ctx, pipeline)
+	if err != nil {
+		return 0, err
+	}
+	defer cursor.Close(ctx)
+
+	var result []bson.M
+	if err = cursor.All(ctx, &result); err != nil {
+		return 0, err
+	}
+
+	if len(result) == 0 {
+		return 0, nil
+	}
+
+	totalPairs, ok := result[0]["totalPairs"].(int32)
+	if !ok {
+		return 0, nil
+	}
+
+	return int64(totalPairs), nil
+}
+
 func (r *ClientRepository) Update(ctx context.Context, id string, client *models.Client) (*models.Client, error) {
 	objectID, err := primitive.ObjectIDFromHex(id)
 	if err != nil {

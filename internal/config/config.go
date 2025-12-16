@@ -23,6 +23,11 @@ type Config struct {
 	BinaryThreshold      float64
 	BinaryCommissionRate float64
 	DefaultProductPrice  float64
+	// Nouveaux paramètres pour l'algorithme binaire amélioré
+	BinaryCycleValue      float64
+	BinaryDailyCycleLimit int
+	BinaryWeeklyCycleLimit int
+	BinaryMinVolumePerLeg float64
 }
 
 func Load() *Config {
@@ -45,6 +50,11 @@ func Load() *Config {
 		BinaryThreshold:      getFloatEnv("BINARY_THRESHOLD", 100.0),
 		BinaryCommissionRate: getFloatEnv("BINARY_COMMISSION_RATE", 0.1),
 		DefaultProductPrice:  getFloatEnv("DEFAULT_PRODUCT_PRICE", 50.0),
+		// Nouveaux paramètres pour l'algorithme binaire amélioré
+		BinaryCycleValue:      getFloatEnv("BINARY_CYCLE_VALUE", 20.0),
+		BinaryDailyCycleLimit: getIntEnv("BINARY_DAILY_CYCLE_LIMIT", 4),
+		BinaryWeeklyCycleLimit: getIntEnv("BINARY_WEEKLY_CYCLE_LIMIT", 0),
+		BinaryMinVolumePerLeg: getFloatEnv("BINARY_MIN_VOLUME_PER_LEG", 1.0),
 	}
 }
 
@@ -68,6 +78,15 @@ func getFloatEnv(key string, defaultValue float64) float64 {
 	if value := os.Getenv(key); value != "" {
 		if floatValue, err := strconv.ParseFloat(value, 64); err == nil {
 			return floatValue
+		}
+	}
+	return defaultValue
+}
+
+func getIntEnv(key string, defaultValue int) int {
+	if value := os.Getenv(key); value != "" {
+		if intValue, err := strconv.Atoi(value); err == nil {
+			return intValue
 		}
 	}
 	return defaultValue

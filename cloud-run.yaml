@@ -9,16 +9,16 @@ spec:
   template:
     metadata:
       annotations:
-        # Resource limits for Cloud Run
-        run.googleapis.com/cpu: "1"
-        run.googleapis.com/memory: "1Gi"
+        # Resource limits for Cloud Run - Optimized for performance
+        run.googleapis.com/cpu: "2"
+        run.googleapis.com/memory: "2Gi"
         run.googleapis.com/execution-environment: gen2
-        # Auto-scaling configuration
-        autoscaling.knative.dev/minScale: "0"
+        # Auto-scaling configuration - Keep at least 1 instance to avoid cold starts
+        autoscaling.knative.dev/minScale: "1"
         autoscaling.knative.dev/maxScale: "10"
         # Timeout configuration
         run.googleapis.com/timeout: "300s"
-        # Startup probe
+        # Startup probe - Boost CPU during startup to reduce cold start time
         run.googleapis.com/startup-cpu-boost: "true"
     spec:
       containerConcurrency: 100
@@ -70,11 +70,11 @@ spec:
         
         resources:
           limits:
+            cpu: "2"
+            memory: "2Gi"
+          requests:
             cpu: "1"
             memory: "1Gi"
-          requests:
-            cpu: "0.5"
-            memory: "512Mi"
         
         # Health check
         livenessProbe:
@@ -94,6 +94,11 @@ spec:
           periodSeconds: 5
           timeoutSeconds: 3
           failureThreshold: 3
+
+
+
+
+
 
 
 

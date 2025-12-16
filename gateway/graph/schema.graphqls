@@ -1,0 +1,35 @@
+# GraphQL Schema for MLM Gateway
+
+type ClientTreeNode {
+  id: ID!
+  clientId: String!
+  name: String!
+  phone: String
+  parentId: ID
+  level: Int!
+  position: String # "left" or "right"
+  
+  # Informations binaires
+  networkVolumeLeft: Float!
+  networkVolumeRight: Float!
+  binaryPairs: Int!
+  totalEarnings: Float!
+  walletBalance: Float!
+  isActive: Boolean!
+  leftActives: Int!
+  rightActives: Int!
+  isQualified: Boolean!
+  cyclesAvailable: Int
+  cyclesPaidToday: Int
+}
+
+type ClientTree {
+  root: ClientTreeNode!
+  nodes: [ClientTreeNode!]!
+  totalNodes: Int!
+  maxLevel: Int!
+}
+
+type Query {
+  clientTree(id: ID!): ClientTree!
+}

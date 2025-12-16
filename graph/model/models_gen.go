@@ -79,6 +79,34 @@ type ClientLoginInput struct {
 	Password string `json:"password"`
 }
 
+type ClientTree struct {
+	Root       *ClientTreeNode   `json:"root"`
+	Nodes      []*ClientTreeNode `json:"nodes"`
+	TotalNodes int32             `json:"totalNodes"`
+	MaxLevel   int32             `json:"maxLevel"`
+}
+
+type ClientTreeNode struct {
+	ID                 string  `json:"id"`
+	ClientID           string  `json:"clientId"`
+	Name               string  `json:"name"`
+	Phone              *string `json:"phone,omitempty"`
+	ParentID           *string `json:"parentId,omitempty"`
+	Level              int32   `json:"level"`
+	Position           *string `json:"position,omitempty"`
+	NetworkVolumeLeft  float64 `json:"networkVolumeLeft"`
+	NetworkVolumeRight float64 `json:"networkVolumeRight"`
+	BinaryPairs        int32   `json:"binaryPairs"`
+	TotalEarnings      float64 `json:"totalEarnings"`
+	WalletBalance      float64 `json:"walletBalance"`
+	IsActive           bool    `json:"isActive"`
+	LeftActives        int32   `json:"leftActives"`
+	RightActives       int32   `json:"rightActives"`
+	IsQualified        bool    `json:"isQualified"`
+	CyclesAvailable    *int32  `json:"cyclesAvailable,omitempty"`
+	CyclesPaidToday    *int32  `json:"cyclesPaidToday,omitempty"`
+}
+
 type Commission struct {
 	ID             string  `json:"id"`
 	ClientID       string  `json:"clientId"`
@@ -210,28 +238,28 @@ type RefreshTokenInput struct {
 }
 
 type Sale struct {
-	ID        string   `json:"id"`
-	ClientID  string   `json:"clientId"`
-	SponsorID string   `json:"sponsorId"`
-	ProductID *string  `json:"productId,omitempty"`
-	Amount    float64  `json:"amount"`
-	Quantity  int32    `json:"quantity"`
-	Side      *string  `json:"side,omitempty"`
-	Date      string   `json:"date"`
-	Status    string   `json:"status"`
-	Note      *string  `json:"note,omitempty"`
-	Client    *Client  `json:"client,omitempty"`
-	Sponsor   *Client  `json:"sponsor,omitempty"`
-	Product   *Product `json:"product,omitempty"`
+	ID         string   `json:"id"`
+	ClientID   string   `json:"clientId"`
+	ProductID  *string  `json:"productId,omitempty"`
+	Amount     float64  `json:"amount"`
+	PaidAmount *float64 `json:"paidAmount,omitempty"`
+	Quantity   int32    `json:"quantity"`
+	Side       *string  `json:"side,omitempty"`
+	Date       string   `json:"date"`
+	Status     string   `json:"status"`
+	Note       *string  `json:"note,omitempty"`
+	Client     *Client  `json:"client,omitempty"`
+	Product    *Product `json:"product,omitempty"`
 }
 
 type SaleInput struct {
-	ClientID  string  `json:"clientId"`
-	ProductID string  `json:"productId"`
-	Quantity  int32   `json:"quantity"`
-	Amount    float64 `json:"amount"`
-	Status    *string `json:"status,omitempty"`
-	Note      *string `json:"note,omitempty"`
+	ClientID   string   `json:"clientId"`
+	ProductID  string   `json:"productId"`
+	Quantity   int32    `json:"quantity"`
+	Amount     float64  `json:"amount"`
+	PaidAmount *float64 `json:"paidAmount,omitempty"`
+	Status     *string  `json:"status,omitempty"`
+	Note       *string  `json:"note,omitempty"`
 }
 
 type SalesStatus struct {

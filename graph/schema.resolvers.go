@@ -255,7 +255,7 @@ func (r *mutationResolver) ClientDelete(ctx context.Context, id string) (bool, e
 
 // SaleCreate is the resolver for the saleCreate field.
 func (r *mutationResolver) SaleCreate(ctx context.Context, input model.SaleInput) (*model.Sale, error) {
-	// Resolve client and sponsor
+	// Resolve client
 	clientOID, err := primitive.ObjectIDFromHex(input.ClientID)
 	if err != nil {
 		return nil, err
@@ -263,10 +263,6 @@ func (r *mutationResolver) SaleCreate(ctx context.Context, input model.SaleInput
 	client, err := r.Resolver.clientService.GetByID(ctx, input.ClientID)
 	if err != nil {
 		return nil, err
-	}
-	sponsorOID := clientOID
-	if client.SponsorID != nil {
-		sponsorOID = *client.SponsorID
 	}
 
 	// Resolve product and get points
@@ -307,15 +303,28 @@ func (r *mutationResolver) SaleCreate(ctx context.Context, input model.SaleInput
 		status = *input.Status
 	}
 
+	// Validation pour le statut "partial"
+	if status == "partial" {
+		if input.PaidAmount == nil {
+			return nil, errors.New("paidAmount est requis lorsque le statut est 'partial'")
+		}
+		if *input.PaidAmount <= 0 {
+			return nil, errors.New("paidAmount doit être supérieur à 0")
+		}
+		if *input.PaidAmount >= input.Amount {
+			return nil, errors.New("paidAmount doit être inférieur au montant total (amount)")
+		}
+	}
+
 	m := &models.Sale{
-		ClientID:  clientOID,
-		SponsorID: sponsorOID,
-		ProductID: productOID,
-		Amount:    input.Amount,
-		Quantity:  int(input.Quantity),
-		Date:      time.Now(),
-		Status:    status,
-		Note:      input.Note,
+		ClientID:   clientOID,
+		ProductID:  productOID,
+		Amount:     input.Amount,
+		PaidAmount: input.PaidAmount,
+		Quantity:   int(input.Quantity),
+		Date:       time.Now(),
+		Status:     status,
+		Note:       input.Note,
 	}
 	created, err := r.Resolver.saleService.Create(ctx, m)
 	if err != nil {
@@ -332,7 +341,9 @@ func (r *mutationResolver) SaleCreate(ctx context.Context, input model.SaleInput
 		}
 	}
 
-	// Ajouter une entrée à la caisse pour cette vente (seulement si le statut est "paid")
+	// Ajouter une entrée à la caisse pour cette vente
+	// Si le statut est "paid", on ajoute le montant total
+	// Si le statut est "partial", on ajoute seulement le paidAmount
 	if created.Status == "paid" {
 		saleRef := created.ID.Hex()
 		refType := "sale"
@@ -340,6 +351,22 @@ func (r *mutationResolver) SaleCreate(ctx context.Context, input model.SaleInput
 		caisseTransaction := &models.CaisseTransaction{
 			Type:          "entree",
 			Amount:        created.Amount,
+			Description:   &desc,
+			Reference:     &saleRef,
+			ReferenceType: &refType,
+		}
+		_, err = r.Resolver.caisseService.AddTransaction(ctx, caisseTransaction)
+		if err != nil {
+			// Log error but don't fail the sale creation
+			// In production, you might want to handle this differently
+		}
+	} else if created.Status == "partial" && created.PaidAmount != nil {
+		saleRef := created.ID.Hex()
+		refType := "sale"
+		desc := fmt.Sprintf("Vente partielle - Client: %s (Montant payé: %.2f / %.2f)", client.Name, *created.PaidAmount, created.Amount)
+		caisseTransaction := &models.CaisseTransaction{
+			Type:          "entree",
+			Amount:        *created.PaidAmount,
 			Description:   &desc,
 			Reference:     &saleRef,
 			ReferenceType: &refType,
@@ -357,25 +384,25 @@ func (r *mutationResolver) SaleCreate(ctx context.Context, input model.SaleInput
 		prodIdStr = &s
 	}
 	return &model.Sale{
-		ID: created.ID.Hex(), ClientID: created.ClientID.Hex(), SponsorID: created.SponsorID.Hex(), ProductID: prodIdStr,
-		Amount: created.Amount, Quantity: int32(created.Quantity), Side: created.Side, Date: created.Date.Format(time.RFC3339), Status: created.Status, Note: created.Note,
+		ID:         created.ID.Hex(),
+		ClientID:   created.ClientID.Hex(),
+		ProductID:  prodIdStr,
+		Amount:     created.Amount,
+		PaidAmount: created.PaidAmount,
+		Quantity:   int32(created.Quantity),
+		Side:       created.Side,
+		Date:       created.Date.Format(time.RFC3339),
+		Status:     created.Status,
+		Note:       created.Note,
 	}, nil
 }
 
 // SaleUpdate is the resolver for the saleUpdate field.
 func (r *mutationResolver) SaleUpdate(ctx context.Context, id string, input model.SaleInput) (*model.Sale, error) {
-	// Keep client and sponsor based on input client
+	// Resolve client
 	clientOID, err := primitive.ObjectIDFromHex(input.ClientID)
 	if err != nil {
 		return nil, err
-	}
-	client, err := r.Resolver.clientService.GetByID(ctx, input.ClientID)
-	if err != nil {
-		return nil, err
-	}
-	sponsorOID := clientOID
-	if client.SponsorID != nil {
-		sponsorOID = *client.SponsorID
 	}
 
 	var productOID *primitive.ObjectID
@@ -390,14 +417,27 @@ func (r *mutationResolver) SaleUpdate(ctx context.Context, id string, input mode
 		status = *input.Status
 	}
 
+	// Validation pour le statut "partial"
+	if status == "partial" {
+		if input.PaidAmount == nil {
+			return nil, errors.New("paidAmount est requis lorsque le statut est 'partial'")
+		}
+		if *input.PaidAmount <= 0 {
+			return nil, errors.New("paidAmount doit être supérieur à 0")
+		}
+		if *input.PaidAmount >= input.Amount {
+			return nil, errors.New("paidAmount doit être inférieur au montant total (amount)")
+		}
+	}
+
 	m := &models.Sale{
-		ClientID:  clientOID,
-		SponsorID: sponsorOID,
-		ProductID: productOID,
-		Amount:    input.Amount,
-		Quantity:  int(input.Quantity),
-		Status:    status,
-		Note:      input.Note,
+		ClientID:   clientOID,
+		ProductID:  productOID,
+		Amount:     input.Amount,
+		PaidAmount: input.PaidAmount,
+		Quantity:   int(input.Quantity),
+		Status:     status,
+		Note:       input.Note,
 	}
 	updated, err := r.Resolver.saleService.Update(ctx, id, m)
 	if err != nil {
@@ -409,8 +449,16 @@ func (r *mutationResolver) SaleUpdate(ctx context.Context, id string, input mode
 		prodIdStr = &s
 	}
 	return &model.Sale{
-		ID: updated.ID.Hex(), ClientID: updated.ClientID.Hex(), SponsorID: updated.SponsorID.Hex(), ProductID: prodIdStr,
-		Amount: updated.Amount, Quantity: int32(updated.Quantity), Side: updated.Side, Date: updated.Date.Format(time.RFC3339), Status: updated.Status, Note: updated.Note,
+		ID:         updated.ID.Hex(),
+		ClientID:   updated.ClientID.Hex(),
+		ProductID:  prodIdStr,
+		Amount:     updated.Amount,
+		PaidAmount: updated.PaidAmount,
+		Quantity:   int32(updated.Quantity),
+		Side:       updated.Side,
+		Date:       updated.Date.Format(time.RFC3339),
+		Status:     updated.Status,
+		Note:       updated.Note,
 	}, nil
 }
 
@@ -525,12 +573,30 @@ func (r *mutationResolver) CommissionManualCreate(ctx context.Context, input mod
 }
 
 // RunBinaryCommissionCheck is the resolver for the runBinaryCommissionCheck field.
+// Utilise le nouvel algorithme binaire amélioré
 func (r *mutationResolver) RunBinaryCommissionCheck(ctx context.Context, clientID string) (*model.CommissionResult, error) {
-	res, err := r.Resolver.commissionService.RunBinaryCommissionCheck(ctx, clientID)
+	// Utiliser le nouveau service d'algorithme binaire amélioré
+	result, err := r.Resolver.binaryCommissionService.ComputeBinaryCommission(ctx, clientID)
 	if err != nil {
 		return nil, err
 	}
-	return &model.CommissionResult{CommissionsCreated: int32(res.CommissionsCreated), TotalAmount: res.TotalAmount, Message: res.Message}, nil
+
+	// Convertir le résultat en format CommissionResult
+	commissionsCreated := int32(0)
+	if result.Success && result.Qualified && result.CyclesPaid > 0 {
+		commissionsCreated = 1
+	}
+
+	message := result.Reason
+	if result.Success && result.Qualified && result.CyclesPaid > 0 {
+		message = fmt.Sprintf("Commission binaire calculée: %d cycles payés, montant: %.2f$", result.CyclesPaid, result.Amount)
+	}
+
+	return &model.CommissionResult{
+		CommissionsCreated: commissionsCreated,
+		TotalAmount:        result.Amount,
+		Message:            message,
+	}, nil
 }
 
 // CaisseAddTransaction is the resolver for the caisseAddTransaction field.
@@ -653,12 +719,50 @@ func (r *queryResolver) Product(ctx context.Context, id string) (*model.Product,
 
 // Clients is the resolver for the clients field.
 func (r *queryResolver) Clients(ctx context.Context, filter *model.FilterInput, paging *model.PagingInput) ([]*model.Client, error) {
-	// Minimal implementation: ignore filter/paging wiring for now
-	clients, err := r.Resolver.clientService.GetAll(ctx, nil, nil)
+	// Convert GraphQL filter/paging to internal models
+	var internalFilter *models.FilterInput
+	if filter != nil {
+		internalFilter = &models.FilterInput{
+			Search:   filter.Search,
+			Status:   filter.Status,
+			DateFrom: nil, // Will need to parse if DateFrom/DateTo are provided
+			DateTo:   nil,
+		}
+		// Parse date strings if provided
+		if filter.DateFrom != nil {
+			if t, err := time.Parse(time.RFC3339, *filter.DateFrom); err == nil {
+				internalFilter.DateFrom = &t
+			}
+		}
+		if filter.DateTo != nil {
+			if t, err := time.Parse(time.RFC3339, *filter.DateTo); err == nil {
+				internalFilter.DateTo = &t
+			}
+		}
+	}
+	var internalPaging *models.PagingInput
+	if paging != nil {
+		var page, limit *int
+		if paging.Page != nil {
+			p := int(*paging.Page)
+			page = &p
+		}
+		if paging.Limit != nil {
+			l := int(*paging.Limit)
+			limit = &l
+		}
+		internalPaging = &models.PagingInput{
+			Page:  page,
+			Limit: limit,
+		}
+	}
+	clients, err := r.Resolver.clientService.GetAll(ctx, internalFilter, internalPaging)
 	if err != nil {
 		return nil, err
 	}
 
+	// Only load basic client data - nested fields (sponsor, leftChild, rightChild, transactions, purchases)
+	// will be loaded on-demand via field resolvers if requested in the GraphQL query
 	out := make([]*model.Client, 0, len(clients))
 	for _, c := range clients {
 		mc := &model.Client{
@@ -670,10 +774,7 @@ func (r *queryResolver) Clients(ctx context.Context, filter *model.FilterInput, 
 			Address:            c.Address,
 			Avatar:             c.Avatar,
 			JoinDate:           c.JoinDate.Format(time.RFC3339),
-			SponsorID:          nil,
 			Position:           c.Position,
-			LeftChildID:        nil,
-			RightChildID:       nil,
 			TotalEarnings:      c.TotalEarnings,
 			WalletBalance:      c.WalletBalance,
 			Points:             c.Points,
@@ -684,109 +785,16 @@ func (r *queryResolver) Clients(ctx context.Context, filter *model.FilterInput, 
 		if c.SponsorID != nil {
 			sid := c.SponsorID.Hex()
 			mc.SponsorID = &sid
-			// hydrate sponsor
-			sponsor, err := r.Resolver.clientService.GetByID(ctx, sid)
-			if err == nil && sponsor != nil {
-				mc.Sponsor = &model.Client{
-					ID:          sponsor.ID.Hex(),
-					ClientID:    sponsor.ClientID,
-					Name:        sponsor.Name,
-					Phone:       sponsor.Phone,
-					Nn:          sponsor.NN,
-					Address:     sponsor.Address,
-					Avatar:      sponsor.Avatar,
-					JoinDate:    sponsor.JoinDate.Format(time.RFC3339),
-					Position:    sponsor.Position,
-					BinaryPairs: int32(sponsor.BinaryPairs),
-				}
-			}
 		}
 		if c.LeftChildID != nil {
 			lid := c.LeftChildID.Hex()
 			mc.LeftChildID = &lid
-			// hydrate left child
-			leftChild, err := r.Resolver.clientService.GetByID(ctx, lid)
-			if err == nil && leftChild != nil {
-				mc.LeftChild = &model.Client{
-					ID:          leftChild.ID.Hex(),
-					ClientID:    leftChild.ClientID,
-					Name:        leftChild.Name,
-					Phone:       leftChild.Phone,
-					Nn:          leftChild.NN,
-					Address:     leftChild.Address,
-					Avatar:      leftChild.Avatar,
-					JoinDate:    leftChild.JoinDate.Format(time.RFC3339),
-					Position:    leftChild.Position,
-					BinaryPairs: int32(leftChild.BinaryPairs),
-				}
-			}
 		}
 		if c.RightChildID != nil {
 			rid := c.RightChildID.Hex()
 			mc.RightChildID = &rid
-			// hydrate right child
-			rightChild, err := r.Resolver.clientService.GetByID(ctx, rid)
-			if err == nil && rightChild != nil {
-				mc.RightChild = &model.Client{
-					ID:          rightChild.ID.Hex(),
-					ClientID:    rightChild.ClientID,
-					Name:        rightChild.Name,
-					Phone:       rightChild.Phone,
-					Nn:          rightChild.NN,
-					Address:     rightChild.Address,
-					Avatar:      rightChild.Avatar,
-					JoinDate:    rightChild.JoinDate.Format(time.RFC3339),
-					Position:    rightChild.Position,
-					BinaryPairs: int32(rightChild.BinaryPairs),
-				}
-			}
 		}
-		// Load transactions (payments)
-		payments, err := r.Resolver.paymentService.GetByClientID(ctx, c.ID.Hex())
-		if err == nil {
-			mc.Transactions = make([]*model.Payment, 0, len(payments))
-			for _, p := range payments {
-				mc.Transactions = append(mc.Transactions, &model.Payment{
-					ID:          p.ID.Hex(),
-					ClientID:    p.ClientID.Hex(),
-					Amount:      p.Amount,
-					Date:        p.Date.Format(time.RFC3339),
-					Method:      p.Method,
-					Status:      p.Status,
-					Description: p.Description,
-				})
-			}
-		} else {
-			mc.Transactions = []*model.Payment{}
-		}
-
-		// Load purchases (sales)
-		sales, err := r.Resolver.saleService.GetByClientID(ctx, c.ID.Hex())
-		if err == nil {
-			mc.Purchases = make([]*model.Sale, 0, len(sales))
-			for _, s := range sales {
-				var prodIdStr *string
-				if s.ProductID != nil {
-					sid := s.ProductID.Hex()
-					prodIdStr = &sid
-				}
-				mc.Purchases = append(mc.Purchases, &model.Sale{
-					ID:        s.ID.Hex(),
-					ClientID:  s.ClientID.Hex(),
-					SponsorID: s.SponsorID.Hex(),
-					ProductID: prodIdStr,
-					Amount:    s.Amount,
-					Quantity:  int32(s.Quantity),
-					Side:      s.Side,
-					Date:      s.Date.Format(time.RFC3339),
-					Status:    s.Status,
-					Note:      s.Note,
-				})
-			}
-		} else {
-			mc.Purchases = []*model.Sale{}
-		}
-
+		// Don't load nested data here - use field resolvers instead
 		out = append(out, mc)
 	}
 	return out, nil
@@ -903,7 +911,6 @@ func (r *queryResolver) Client(ctx context.Context, id string) (*model.Client, e
 			mc.Purchases = append(mc.Purchases, &model.Sale{
 				ID:        s.ID.Hex(),
 				ClientID:  s.ClientID.Hex(),
-				SponsorID: s.SponsorID.Hex(),
 				ProductID: prodIdStr,
 				Amount:    s.Amount,
 				Quantity:  int32(s.Quantity),
@@ -918,6 +925,155 @@ func (r *queryResolver) Client(ctx context.Context, id string) (*model.Client, e
 	}
 
 	return mc, nil
+}
+
+// ClientTree is the resolver for the clientTree field.
+func (r *queryResolver) ClientTree(ctx context.Context, id string) (*model.ClientTree, error) {
+	// Vérifier que le service client est disponible
+	if r.Resolver.clientService == nil {
+		return nil, fmt.Errorf("service client non disponible")
+	}
+
+	// Récupérer le client racine
+	client, err := r.Resolver.clientService.GetByID(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("client introuvable: %w", err)
+	}
+
+	// Cache pour éviter les appels répétés à la DB
+	// Map: clientID -> isActive
+	activeCache := make(map[string]bool)
+	
+	// Fonction helper pour vérifier si un client est actif (avec cache)
+	isClientActiveCached := func(clientID string) bool {
+		if active, found := activeCache[clientID]; found {
+			return active
+		}
+		if r.Resolver.binaryCommissionService == nil {
+			activeCache[clientID] = false
+			return false
+		}
+		active, err := r.Resolver.binaryCommissionService.IsClientActive(ctx, clientID)
+		if err != nil {
+			activeCache[clientID] = false
+			return false
+		}
+		activeCache[clientID] = active
+		return active
+	}
+
+	// Créer le nœud racine avec initialisation des champs obligatoires
+	rootNode := &model.ClientTreeNode{
+		ID:                client.ID.Hex(),
+		ClientID:          client.ClientID,
+		Name:              client.Name,
+		Phone:             client.Phone,
+		Level:             0,
+		Position:          nil,
+		ParentID:          nil,
+		NetworkVolumeLeft: client.NetworkVolumeLeft,
+		NetworkVolumeRight: client.NetworkVolumeRight,
+		BinaryPairs:       int32(client.BinaryPairs),
+		TotalEarnings:     client.TotalEarnings,
+		WalletBalance:     client.WalletBalance,
+		IsActive:          isClientActiveCached(client.ID.Hex()),
+		LeftActives:       0,    // Sera mis à jour par enrichClientTreeNode
+		RightActives:      0,    // Sera mis à jour par enrichClientTreeNode
+		IsQualified:       false, // Sera mis à jour par enrichClientTreeNode
+	}
+
+	// Enrichir le nœud racine avec les informations binaires (seulement pour les 3 premiers niveaux)
+	if err := r.enrichClientTreeNodeOptimized(ctx, rootNode, client, 0, 3, activeCache); err != nil {
+		// Log l'erreur mais continue quand même avec les valeurs par défaut
+		fmt.Printf("Erreur lors de l'enrichissement du nœud racine: %v\n", err)
+	}
+
+	// Collecter tous les descendants dans une liste plate
+	nodes := []*model.ClientTreeNode{rootNode}
+	maxLevel := 0
+
+	// Parcourir l'arbre pour collecter tous les nœuds
+	var collectTreeNodesHelper func(r *queryResolver, ctx context.Context, client *models.Client, level int, nodes *[]*model.ClientTreeNode, maxLevel *int, activeCache map[string]bool)
+	collectTreeNodesHelper = func(r *queryResolver, ctx context.Context, client *models.Client, level int, nodes *[]*model.ClientTreeNode, maxLevel *int, activeCache map[string]bool) {
+		currentLevel := level + 1
+		if currentLevel > *maxLevel {
+			*maxLevel = currentLevel
+		}
+		if client.LeftChildID != nil {
+			leftChildID := client.LeftChildID.Hex()
+			leftChild, err := r.Resolver.clientService.GetByID(ctx, leftChildID)
+			if err == nil && leftChild != nil {
+				parentID := client.ID.Hex()
+				position := "left"
+				node := &model.ClientTreeNode{
+					ID:                leftChild.ID.Hex(),
+					ClientID:          leftChild.ClientID,
+					Name:             leftChild.Name,
+					Phone:            leftChild.Phone,
+					ParentID:         &parentID,
+					Level:             int32(currentLevel),
+					Position:         &position,
+					NetworkVolumeLeft: leftChild.NetworkVolumeLeft,
+					NetworkVolumeRight: leftChild.NetworkVolumeRight,
+					BinaryPairs:       int32(leftChild.BinaryPairs),
+					TotalEarnings:     leftChild.TotalEarnings,
+					WalletBalance:     leftChild.WalletBalance,
+					IsActive:          isClientActiveCached(leftChild.ID.Hex()),
+					LeftActives:       0,    // Sera mis à jour par enrichClientTreeNode
+					RightActives:      0,    // Sera mis à jour par enrichClientTreeNode
+					IsQualified:       false, // Sera mis à jour par enrichClientTreeNode
+				}
+				// Enrichir le nœud avec les informations binaires (seulement pour les 3 premiers niveaux)
+				if err := r.enrichClientTreeNodeOptimized(ctx, node, leftChild, currentLevel, 3, activeCache); err != nil {
+					// Log l'erreur mais continue quand même avec les valeurs par défaut
+					fmt.Printf("Erreur lors de l'enrichissement du nœud: %v\n", err)
+				}
+				*nodes = append(*nodes, node)
+				collectTreeNodesHelper(r, ctx, leftChild, currentLevel, nodes, maxLevel, activeCache)
+			}
+		}
+		if client.RightChildID != nil {
+			rightChildID := client.RightChildID.Hex()
+			rightChild, err := r.Resolver.clientService.GetByID(ctx, rightChildID)
+			if err == nil && rightChild != nil {
+				parentID := client.ID.Hex()
+				position := "right"
+				node := &model.ClientTreeNode{
+					ID:                rightChild.ID.Hex(),
+					ClientID:          rightChild.ClientID,
+					Name:             rightChild.Name,
+					Phone:            rightChild.Phone,
+					ParentID:         &parentID,
+					Level:             int32(currentLevel),
+					Position:         &position,
+					NetworkVolumeLeft: rightChild.NetworkVolumeLeft,
+					NetworkVolumeRight: rightChild.NetworkVolumeRight,
+					BinaryPairs:       int32(rightChild.BinaryPairs),
+					TotalEarnings:     rightChild.TotalEarnings,
+					WalletBalance:     rightChild.WalletBalance,
+					IsActive:          isClientActiveCached(rightChild.ID.Hex()),
+					LeftActives:       0,    // Sera mis à jour par enrichClientTreeNode
+					RightActives:      0,    // Sera mis à jour par enrichClientTreeNode
+					IsQualified:       false, // Sera mis à jour par enrichClientTreeNode
+				}
+				// Enrichir le nœud avec les informations binaires (seulement pour les 3 premiers niveaux)
+				if err := r.enrichClientTreeNodeOptimized(ctx, node, rightChild, currentLevel, 3, activeCache); err != nil {
+					// Log l'erreur mais continue quand même avec les valeurs par défaut
+					fmt.Printf("Erreur lors de l'enrichissement du nœud: %v\n", err)
+				}
+				*nodes = append(*nodes, node)
+				collectTreeNodesHelper(r, ctx, rightChild, currentLevel, nodes, maxLevel, activeCache)
+			}
+		}
+	}
+	collectTreeNodesHelper(r, ctx, client, 0, &nodes, &maxLevel, activeCache)
+
+	return &model.ClientTree{
+		Root:       rootNode,
+		Nodes:      nodes,
+		TotalNodes: int32(len(nodes)),
+		MaxLevel:   int32(maxLevel),
+	}, nil
 }
 
 // Sales is the resolver for the sales field.
@@ -965,16 +1121,16 @@ func (r *queryResolver) Sales(ctx context.Context, filter *model.FilterInput, pa
 		}
 
 		sale := &model.Sale{
-			ID:        s.ID.Hex(),
-			ClientID:  s.ClientID.Hex(),
-			SponsorID: s.SponsorID.Hex(),
-			ProductID: prodIdStr,
-			Amount:    s.Amount,
-			Quantity:  int32(s.Quantity),
-			Side:      s.Side,
-			Date:      s.Date.Format(time.RFC3339),
-			Status:    s.Status,
-			Note:      s.Note,
+			ID:         s.ID.Hex(),
+			ClientID:   s.ClientID.Hex(),
+			ProductID:  prodIdStr,
+			Amount:     s.Amount,
+			PaidAmount: s.PaidAmount,
+			Quantity:   int32(s.Quantity),
+			Side:       s.Side,
+			Date:       s.Date.Format(time.RFC3339),
+			Status:     s.Status,
+			Note:       s.Note,
 		}
 
 		// Hydrate client
@@ -1011,43 +1167,6 @@ func (r *queryResolver) Sales(ctx context.Context, filter *model.FilterInput, pa
 			if client.RightChildID != nil {
 				rid := client.RightChildID.Hex()
 				sale.Client.RightChildID = &rid
-			}
-		}
-
-		// Hydrate sponsor
-		sponsor, err := r.Resolver.clientService.GetByID(ctx, s.SponsorID.Hex())
-		if err == nil && sponsor != nil {
-			sale.Sponsor = &model.Client{
-				ID:                 sponsor.ID.Hex(),
-				ClientID:           sponsor.ClientID,
-				Name:               sponsor.Name,
-				Phone:              sponsor.Phone,
-				Nn:                 sponsor.NN,
-				Address:            sponsor.Address,
-				Avatar:             sponsor.Avatar,
-				SponsorID:          nil,
-				Position:           sponsor.Position,
-				LeftChildID:        nil,
-				RightChildID:       nil,
-				JoinDate:           sponsor.JoinDate.Format(time.RFC3339),
-				TotalEarnings:      sponsor.TotalEarnings,
-				WalletBalance:      sponsor.WalletBalance,
-				Points:             sponsor.Points,
-				NetworkVolumeLeft:  sponsor.NetworkVolumeLeft,
-				NetworkVolumeRight: sponsor.NetworkVolumeRight,
-				BinaryPairs:        int32(sponsor.BinaryPairs),
-			}
-			if sponsor.SponsorID != nil {
-				sid := sponsor.SponsorID.Hex()
-				sale.Sponsor.SponsorID = &sid
-			}
-			if sponsor.LeftChildID != nil {
-				lid := sponsor.LeftChildID.Hex()
-				sale.Sponsor.LeftChildID = &lid
-			}
-			if sponsor.RightChildID != nil {
-				rid := sponsor.RightChildID.Hex()
-				sale.Sponsor.RightChildID = &rid
 			}
 		}
 
@@ -1088,16 +1207,16 @@ func (r *queryResolver) Sale(ctx context.Context, id string) (*model.Sale, error
 	}
 
 	sale := &model.Sale{
-		ID:        s.ID.Hex(),
-		ClientID:  s.ClientID.Hex(),
-		SponsorID: s.SponsorID.Hex(),
-		ProductID: prodIdStr,
-		Amount:    s.Amount,
-		Quantity:  int32(s.Quantity),
-		Side:      s.Side,
-		Date:      s.Date.Format(time.RFC3339),
-		Status:    s.Status,
-		Note:      s.Note,
+		ID:         s.ID.Hex(),
+		ClientID:   s.ClientID.Hex(),
+		ProductID:  prodIdStr,
+		Amount:     s.Amount,
+		PaidAmount: s.PaidAmount,
+		Quantity:   int32(s.Quantity),
+		Side:       s.Side,
+		Date:       s.Date.Format(time.RFC3339),
+		Status:     s.Status,
+		Note:       s.Note,
 	}
 
 	// Hydrate client
@@ -1134,39 +1253,6 @@ func (r *queryResolver) Sale(ctx context.Context, id string) (*model.Sale, error
 		if client.RightChildID != nil {
 			rid := client.RightChildID.Hex()
 			sale.Client.RightChildID = &rid
-		}
-	}
-
-	// Hydrate sponsor
-	sponsor, err := r.Resolver.clientService.GetByID(ctx, s.SponsorID.Hex())
-	if err == nil && sponsor != nil {
-		sale.Sponsor = &model.Client{
-			ID:                 sponsor.ID.Hex(),
-			ClientID:           sponsor.ClientID,
-			Name:               sponsor.Name,
-			SponsorID:          nil,
-			Position:           sponsor.Position,
-			LeftChildID:        nil,
-			RightChildID:       nil,
-			JoinDate:           sponsor.JoinDate.Format(time.RFC3339),
-			TotalEarnings:      sponsor.TotalEarnings,
-			WalletBalance:      sponsor.WalletBalance,
-			Points:             sponsor.Points,
-			NetworkVolumeLeft:  sponsor.NetworkVolumeLeft,
-			NetworkVolumeRight: sponsor.NetworkVolumeRight,
-			BinaryPairs:        int32(sponsor.BinaryPairs),
-		}
-		if sponsor.SponsorID != nil {
-			sid := sponsor.SponsorID.Hex()
-			sale.Sponsor.SponsorID = &sid
-		}
-		if sponsor.LeftChildID != nil {
-			lid := sponsor.LeftChildID.Hex()
-			sale.Sponsor.LeftChildID = &lid
-		}
-		if sponsor.RightChildID != nil {
-			rid := sponsor.RightChildID.Hex()
-			sale.Sponsor.RightChildID = &rid
 		}
 	}
 
@@ -1241,24 +1327,20 @@ func (r *queryResolver) DashboardStats(ctx context.Context, rangeArg *string) (*
 	if err != nil {
 		return nil, err
 	}
+	// Only load basic stats - heavy fields (monthlySales, networkGrowth, etc.) will be loaded via field resolvers if requested
 	return &model.DashboardStats{
-		TotalProducts: int32(s.TotalProducts), TotalClients: int32(s.TotalClients), TotalSales: s.TotalSales, TotalCommissions: s.TotalCommissions,
-		TotalRevenue: 0, ActiveClients: int32(s.ActiveClients), LeftVolume: 0, RightVolume: 0, BinaryPairs: 0, NetworkBalance: 0,
-		MonthlySales: []*model.MonthlySales{}, NetworkGrowth: []*model.NetworkGrowth{}, SalesStatus: &model.SalesStatus{}, TopProducts: []*model.TopProduct{}, RecentActivity: []*model.RecentActivity{},
+		TotalProducts:    int32(s.TotalProducts),
+		TotalClients:     int32(s.TotalClients),
+		TotalSales:       s.TotalSales,
+		TotalCommissions: s.TotalCommissions,
+		ActiveClients:    int32(s.ActiveClients),
+		// Heavy fields will be loaded on-demand via field resolvers
 	}, nil
 }
 
 // DashboardData is the resolver for the dashboardData field.
 func (r *queryResolver) DashboardData(ctx context.Context) (*model.DashboardStats, error) {
-	s, err := r.Resolver.adminService.GetDashboardStats(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
-	return &model.DashboardStats{
-		TotalProducts: int32(s.TotalProducts), TotalClients: int32(s.TotalClients), TotalSales: s.TotalSales, TotalCommissions: s.TotalCommissions,
-		TotalRevenue: 0, ActiveClients: int32(s.ActiveClients), LeftVolume: 0, RightVolume: 0, BinaryPairs: 0, NetworkBalance: 0,
-		MonthlySales: []*model.MonthlySales{}, NetworkGrowth: []*model.NetworkGrowth{}, SalesStatus: &model.SalesStatus{}, TopProducts: []*model.TopProduct{}, RecentActivity: []*model.RecentActivity{},
-	}, nil
+	return r.DashboardStats(ctx, nil)
 }
 
 // Caisse is the resolver for the caisse field.
@@ -1375,3 +1457,101 @@ func (r *Resolver) Subscription() SubscriptionResolver { return &subscriptionRes
 type mutationResolver struct{ *Resolver }
 type queryResolver struct{ *Resolver }
 type subscriptionResolver struct{ *Resolver }
+
+// enrichClientTreeNode enrichit un ClientTreeNode avec les informations binaires
+func (r *queryResolver) enrichClientTreeNode(ctx context.Context, node *model.ClientTreeNode, client *models.Client) error {
+	return r.enrichClientTreeNodeOptimized(ctx, node, client, 0, 3, make(map[string]bool))
+}
+
+// enrichClientTreeNodeOptimized enrichit un ClientTreeNode avec les informations binaires (version optimisée)
+// maxDepthForActives: limite la profondeur pour le calcul des actifs (0 = pas de limite, 3 = seulement 3 niveaux)
+func (r *queryResolver) enrichClientTreeNodeOptimized(ctx context.Context, node *model.ClientTreeNode, client *models.Client, currentLevel int, maxDepthForActives int, activeCache map[string]bool) error {
+	// Vérifier que le service est disponible
+	if r.Resolver.binaryCommissionService == nil {
+		// Si le service n'est pas disponible, on garde les valeurs par défaut déjà initialisées
+		zero := int32(0)
+		node.CyclesAvailable = &zero
+		node.CyclesPaidToday = &zero
+		return fmt.Errorf("binaryCommissionService n'est pas disponible")
+	}
+
+	// Récupérer les informations de base du client (déjà initialisées, mais on les met à jour au cas où)
+	node.NetworkVolumeLeft = client.NetworkVolumeLeft
+	node.NetworkVolumeRight = client.NetworkVolumeRight
+	node.BinaryPairs = int32(client.BinaryPairs)
+	node.TotalEarnings = client.TotalEarnings
+	node.WalletBalance = client.WalletBalance
+
+	// IsActive est déjà mis à jour via le cache dans ClientTree
+
+	// Calculer le nombre d'actifs dans chaque jambe SEULEMENT si on est dans les premiers niveaux
+	// Pour les niveaux plus profonds, on met 0 pour éviter les calculs coûteux
+	if maxDepthForActives == 0 || currentLevel < maxDepthForActives {
+		// Utiliser la version optimisée avec cache
+		remainingDepth := maxDepthForActives - currentLevel
+		if remainingDepth < 0 {
+			remainingDepth = 0
+		}
+		legs, err := r.Resolver.binaryCommissionService.GetLegsVolumesWithCache(ctx, client, activeCache, remainingDepth)
+		if err == nil && legs != nil {
+			node.LeftActives = int32(legs.LeftActives)
+			node.RightActives = int32(legs.RightActives)
+		} else {
+			// En cas d'erreur, on met 0 pour éviter de bloquer la requête
+			node.LeftActives = 0
+			node.RightActives = 0
+		}
+	} else {
+		// Pour les niveaux profonds, on ne calcule pas les actifs (trop coûteux)
+		node.LeftActives = 0
+		node.RightActives = 0
+	}
+
+	// Vérifier la qualification (seulement si on a calculé les actifs)
+	if maxDepthForActives == 0 || currentLevel < maxDepthForActives {
+		qualification, err := r.Resolver.binaryCommissionService.CheckQualification(ctx, client)
+		if err == nil && qualification != nil {
+			node.IsQualified = qualification.IsQualified
+		} else {
+			node.IsQualified = false
+		}
+	} else {
+		// Pour les niveaux profonds, on ne vérifie pas la qualification
+		node.IsQualified = false
+	}
+
+	// Calculer les cycles disponibles
+	if node.LeftActives > 0 && node.RightActives > 0 {
+		if node.LeftActives < node.RightActives {
+			cyclesInt32 := node.LeftActives
+			node.CyclesAvailable = &cyclesInt32
+		} else {
+			cyclesInt32 := node.RightActives
+			node.CyclesAvailable = &cyclesInt32
+		}
+	} else {
+		zero := int32(0)
+		node.CyclesAvailable = &zero
+	}
+
+	// Récupérer les cycles payés aujourd'hui (seulement pour les premiers niveaux pour éviter trop d'appels DB)
+	// On évite cette opération pour les niveaux profonds car elle peut être coûteuse
+	if (maxDepthForActives == 0 || currentLevel < maxDepthForActives) && r.Resolver.binaryCommissionService != nil {
+		today := time.Now().Truncate(24 * time.Hour)
+		capping, err := r.Resolver.binaryCommissionService.GetOrCreateCapping(ctx, client.ID, today)
+		if err == nil && capping != nil {
+			cyclesPaid := int32(capping.CyclesPaidToday)
+			node.CyclesPaidToday = &cyclesPaid
+		} else {
+			// En cas d'erreur, on met 0 pour ne pas bloquer la requête
+			zero := int32(0)
+			node.CyclesPaidToday = &zero
+		}
+	} else {
+		// Pour les niveaux profonds ou si le service n'est pas disponible, on met 0
+		zero := int32(0)
+		node.CyclesPaidToday = &zero
+	}
+
+	return nil
+}

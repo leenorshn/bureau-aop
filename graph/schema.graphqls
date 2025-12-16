@@ -38,19 +38,48 @@ type Client {
   purchases: [Sale!]!
 }
 
+type ClientTreeNode {
+  id: ID!
+  clientId: String!
+  name: String!
+  phone: String
+  parentId: ID
+  level: Int!
+  position: String # "left" or "right"
+  
+  # Nouveaux champs pour les informations binaires
+  networkVolumeLeft: Float!
+  networkVolumeRight: Float!
+  binaryPairs: Int!
+  totalEarnings: Float!
+  walletBalance: Float!
+  isActive: Boolean! # Indique si le membre a fait au moins 1 vente
+  leftActives: Int! # Nombre d'actifs dans la jambe gauche
+  rightActives: Int! # Nombre d'actifs dans la jambe droite
+  isQualified: Boolean! # Est qualifié pour recevoir des commissions
+  cyclesAvailable: Int # Cycles disponibles (calculé)
+  cyclesPaidToday: Int # Cycles payés aujourd'hui
+}
+
+type ClientTree {
+  root: ClientTreeNode!
+  nodes: [ClientTreeNode!]!
+  totalNodes: Int!
+  maxLevel: Int!
+}
+
 type Sale {
   id: ID!
   clientId: ID!
-  sponsorId: ID!
   productId: ID
   amount: Float!
+  paidAmount: Float
   quantity: Int!
   side: String
   date: String!
   status: String!
   note: String
   client: Client
-  sponsor: Client
   product: Product
 }
 
@@ -199,6 +228,7 @@ input SaleInput {
   productId: ID!
   quantity: Int!
   amount: Float!
+  paidAmount: Float
   status: String
   note: String
 }
@@ -262,6 +292,7 @@ type Query {
   # Clients
   clients(filter: FilterInput, paging: PagingInput): [Client!]!
   client(id: ID!): Client
+  clientTree(id: ID!): ClientTree!
 
   # Sales
   sales(filter: FilterInput, paging: PagingInput): [Sale!]!

@@ -45,23 +45,40 @@ func main() {
 		}
 	}()
 
-	// Connect to MongoDB
-	clientOptions := options.Client().ApplyURI(cfg.MongoURI)
-	client, err := mongo.Connect(context.Background(), clientOptions)
+	// Connect to MongoDB with optimized connection pool settings for Cloud Run
+	clientOptions := options.Client().ApplyURI(cfg.MongoURI).
+		SetMaxPoolSize(50).                         // Maximum number of connections in the pool
+		SetMinPoolSize(5).                          // Minimum number of connections to maintain
+		SetMaxConnIdleTime(30 * time.Second).       // Close connections after 30s of inactivity
+		SetConnectTimeout(10 * time.Second).        // Timeout for initial connection
+		SetServerSelectionTimeout(5 * time.Second). // Timeout for server selection
+		SetSocketTimeout(30 * time.Second).         // Timeout for socket operations
+		SetHeartbeatInterval(10 * time.Second)      // Heartbeat interval for connection monitoring
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	client, err := mongo.Connect(ctx, clientOptions)
 	if err != nil {
 		logger.Fatal("Failed to connect to MongoDB", zap.Error(err))
 	}
 	defer func() {
-		if err := client.Disconnect(context.Background()); err != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := client.Disconnect(ctx); err != nil {
 			logger.Error("Failed to disconnect from MongoDB", zap.Error(err))
 		}
 	}()
 
-	// Ping the primary to verify connection
-	if err := client.Ping(context.Background(), nil); err != nil {
+	// Ping the primary to verify connection with timeout
+	pingCtx, pingCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer pingCancel()
+	if err := client.Ping(pingCtx, nil); err != nil {
 		logger.Fatal("Failed to ping MongoDB", zap.Error(err))
 	}
-	logger.Info("Connected to MongoDB!")
+	logger.Info("Connected to MongoDB!",
+		zap.String("maxPoolSize", "50"),
+		zap.String("minPoolSize", "5"))
 
 	db := client.Database(cfg.MongoDBName)
 
@@ -73,6 +90,7 @@ func main() {
 	commissionRepo := store.NewCommissionRepository(db)
 	adminRepo := store.NewAdminRepository(db)
 	caisseRepo := store.NewCaisseRepository(db)
+	binaryCappingRepo := store.NewBinaryCappingRepository(db)
 
 	// Initialize JWT service
 	jwtService := auth.NewJWTService(cfg, logger)
@@ -86,6 +104,24 @@ func main() {
 	adminService := service.NewAdminService(adminRepo, clientRepo, productRepo, saleRepo, commissionRepo, logger)
 	authService := service.NewAuthService(adminRepo, jwtService, logger)
 	caisseService := service.NewCaisseService(caisseRepo, logger)
+	
+	// Initialize Binary Commission Service with new algorithm
+	binaryConfig := models.BinaryConfig{
+		CycleValue:         cfg.BinaryCycleValue,
+		DailyCycleLimit:    cfg.BinaryDailyCycleLimit,
+		WeeklyCycleLimit:   cfg.BinaryWeeklyCycleLimit,
+		MinVolumePerLeg:    cfg.BinaryMinVolumePerLeg,
+		RequireDirectLeft:  true,
+		RequireDirectRight: true,
+	}
+	binaryCommissionService := service.NewBinaryCommissionService(
+		clientRepo,
+		commissionRepo,
+		saleRepo,
+		binaryCappingRepo,
+		logger,
+		binaryConfig,
+	)
 
 	// Initialize GraphQL resolver
 	resolver := graph.NewResolver(
@@ -97,6 +133,7 @@ func main() {
 		authService,
 		adminService,
 		caisseService,
+		binaryCommissionService,
 	)
 
 	// Create GraphQL handler
@@ -153,7 +190,16 @@ func main() {
 	}
 
 	logger.Info("Starting server", zap.String("port", port))
-	server := &http.Server{Addr: ":" + port, Handler: nil} // Handler is set by http.Handle
+
+	// Configure HTTP server with timeouts optimized for Cloud Run
+	server := &http.Server{
+		Addr:              ":" + port,
+		Handler:           nil,              // Handler is set by http.Handle
+		ReadTimeout:       15 * time.Second, // Maximum duration for reading the entire request
+		WriteTimeout:      15 * time.Second, // Maximum duration before timing out writes
+		IdleTimeout:       60 * time.Second, // Maximum amount of time to wait for the next request
+		ReadHeaderTimeout: 5 * time.Second,  // Amount of time allowed to read request headers
+	}
 
 	go func() {
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -167,10 +213,10 @@ func main() {
 	<-quit
 	logger.Info("Shutting down server...")
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer shutdownCancel()
 
-	if err := server.Shutdown(ctx); err != nil {
+	if err := server.Shutdown(shutdownCtx); err != nil {
 		logger.Fatal("Server forced to shutdown", zap.Error(err))
 	}
 	logger.Info("Server exited")

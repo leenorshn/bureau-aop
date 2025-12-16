@@ -44,16 +44,16 @@ type Client struct {
 
 // Sale represents a sale in the MLM system
 type Sale struct {
-	ID        primitive.ObjectID  `bson:"_id,omitempty" json:"id"`
-	ClientID  primitive.ObjectID  `bson:"clientId" json:"clientId"`
-	SponsorID primitive.ObjectID  `bson:"sponsorId" json:"sponsorId"`
-	ProductID *primitive.ObjectID `bson:"productId,omitempty" json:"productId"`
-	Amount    float64             `bson:"amount" json:"amount"`
-	Quantity  int                 `bson:"quantity" json:"quantity"`
-	Side      *string             `bson:"side,omitempty" json:"side"` // "left" or "right"
-	Date      time.Time           `bson:"date" json:"date"`
-	Status    string              `bson:"status" json:"status"` // "paid", "pending", "partial", "cancelled"
-	Note      *string             `bson:"note,omitempty" json:"note"`
+	ID         primitive.ObjectID  `bson:"_id,omitempty" json:"id"`
+	ClientID   primitive.ObjectID  `bson:"clientId" json:"clientId"`
+	ProductID  *primitive.ObjectID `bson:"productId,omitempty" json:"productId"`
+	Amount     float64             `bson:"amount" json:"amount"`
+	PaidAmount *float64            `bson:"paidAmount,omitempty" json:"paidAmount,omitempty"`
+	Quantity   int                 `bson:"quantity" json:"quantity"`
+	Side       *string             `bson:"side,omitempty" json:"side"` // "left" or "right"
+	Date       time.Time           `bson:"date" json:"date"`
+	Status     string              `bson:"status" json:"status"` // "paid", "pending", "partial", "cancelled"
+	Note       *string             `bson:"note,omitempty" json:"note"`
 }
 
 // Payment represents a payment in the MLM system
@@ -170,10 +170,11 @@ type ClientInput struct {
 
 // SaleInput represents input for creating sales
 type SaleInput struct {
-	ClientID  string  `json:"clientId"`
-	ProductID *string `json:"productId,omitempty"`
-	Amount    float64 `json:"amount"`
-	Note      *string `json:"note,omitempty"`
+	ClientID   string   `json:"clientId"`
+	ProductID  *string  `json:"productId,omitempty"`
+	Amount     float64 `json:"amount"`
+	PaidAmount *float64 `json:"paidAmount,omitempty"`
+	Note       *string  `json:"note,omitempty"`
 }
 
 // PaymentInput represents input for creating payments

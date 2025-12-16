@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"bureau/internal/models"
@@ -69,42 +70,89 @@ func (s *AdminService) GetDashboardStats(ctx context.Context, rangeArg *string) 
 		DateTo:   &now,
 	}
 
-	// Get counts
-	totalClients, err := s.clientRepo.Count(ctx, nil)
-	if err != nil {
-		return nil, err
+	// Use goroutines to parallelize independent queries
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	var statsErr error
+
+	stats := &models.DashboardStats{}
+
+	// Parallel queries for counts and totals
+	wg.Add(5)
+	
+	go func() {
+		defer wg.Done()
+		count, err := s.clientRepo.Count(ctx, nil)
+		mu.Lock()
+		defer mu.Unlock()
+		if err != nil {
+			statsErr = err
+			return
+		}
+		stats.TotalClients = int(count)
+	}()
+
+	go func() {
+		defer wg.Done()
+		count, err := s.productRepo.Count(ctx, nil)
+		mu.Lock()
+		defer mu.Unlock()
+		if err != nil {
+			statsErr = err
+			return
+		}
+		stats.TotalProducts = int(count)
+	}()
+
+	go func() {
+		defer wg.Done()
+		total, err := s.saleRepo.GetTotalSales(ctx, filter)
+		mu.Lock()
+		defer mu.Unlock()
+		if err != nil {
+			statsErr = err
+			return
+		}
+		stats.TotalSales = total
+	}()
+
+	go func() {
+		defer wg.Done()
+		total, err := s.commissionRepo.GetTotalCommissions(ctx, filter)
+		mu.Lock()
+		defer mu.Unlock()
+		if err != nil {
+			statsErr = err
+			return
+		}
+		stats.TotalCommissions = total
+	}()
+
+	go func() {
+		defer wg.Done()
+		count, err := s.clientRepo.Count(ctx, filter)
+		mu.Lock()
+		defer mu.Unlock()
+		if err != nil {
+			statsErr = err
+			return
+		}
+		stats.ActiveClients = int(count)
+	}()
+
+	wg.Wait()
+
+	if statsErr != nil {
+		return nil, statsErr
 	}
 
-	totalProducts, err := s.productRepo.Count(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	// Get totals
-	totalSales, err := s.saleRepo.GetTotalSales(ctx, filter)
-	if err != nil {
-		return nil, err
-	}
-
-	totalCommissions, err := s.commissionRepo.GetTotalCommissions(ctx, filter)
-	if err != nil {
-		return nil, err
-	}
-
-	// For active clients, we'll consider clients with sales in the range
-	activeClients, err := s.clientRepo.Count(ctx, filter)
-	if err != nil {
-		return nil, err
-	}
-
-	return &models.DashboardStats{
-		TotalClients:     int(totalClients),
-		TotalSales:       totalSales,
-		TotalCommissions: totalCommissions,
-		TotalProducts:    int(totalProducts),
-		ActiveClients:    int(activeClients),
-	}, nil
+	return stats, nil
 }
+
+
+
+
+
 
 
 

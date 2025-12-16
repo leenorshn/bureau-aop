@@ -101,6 +101,34 @@ type ComplexityRoot struct {
 		WalletBalance      func(childComplexity int) int
 	}
 
+	ClientTree struct {
+		MaxLevel   func(childComplexity int) int
+		Nodes      func(childComplexity int) int
+		Root       func(childComplexity int) int
+		TotalNodes func(childComplexity int) int
+	}
+
+	ClientTreeNode struct {
+		BinaryPairs        func(childComplexity int) int
+		ClientID           func(childComplexity int) int
+		CyclesAvailable    func(childComplexity int) int
+		CyclesPaidToday    func(childComplexity int) int
+		ID                 func(childComplexity int) int
+		IsActive           func(childComplexity int) int
+		IsQualified        func(childComplexity int) int
+		LeftActives        func(childComplexity int) int
+		Level              func(childComplexity int) int
+		Name               func(childComplexity int) int
+		NetworkVolumeLeft  func(childComplexity int) int
+		NetworkVolumeRight func(childComplexity int) int
+		ParentID           func(childComplexity int) int
+		Phone              func(childComplexity int) int
+		Position           func(childComplexity int) int
+		RightActives       func(childComplexity int) int
+		TotalEarnings      func(childComplexity int) int
+		WalletBalance      func(childComplexity int) int
+	}
+
 	Commission struct {
 		Amount         func(childComplexity int) int
 		Client         func(childComplexity int) int
@@ -198,6 +226,7 @@ type ComplexityRoot struct {
 		Caisse             func(childComplexity int) int
 		CaisseTransactions func(childComplexity int, filter *model.FilterInput, paging *model.PagingInput) int
 		Client             func(childComplexity int, id string) int
+		ClientTree         func(childComplexity int, id string) int
 		Clients            func(childComplexity int, filter *model.FilterInput, paging *model.PagingInput) int
 		Commission         func(childComplexity int, id string) int
 		Commissions        func(childComplexity int, filter *model.FilterInput, paging *model.PagingInput) int
@@ -221,19 +250,18 @@ type ComplexityRoot struct {
 	}
 
 	Sale struct {
-		Amount    func(childComplexity int) int
-		Client    func(childComplexity int) int
-		ClientID  func(childComplexity int) int
-		Date      func(childComplexity int) int
-		ID        func(childComplexity int) int
-		Note      func(childComplexity int) int
-		Product   func(childComplexity int) int
-		ProductID func(childComplexity int) int
-		Quantity  func(childComplexity int) int
-		Side      func(childComplexity int) int
-		Sponsor   func(childComplexity int) int
-		SponsorID func(childComplexity int) int
-		Status    func(childComplexity int) int
+		Amount     func(childComplexity int) int
+		Client     func(childComplexity int) int
+		ClientID   func(childComplexity int) int
+		Date       func(childComplexity int) int
+		ID         func(childComplexity int) int
+		Note       func(childComplexity int) int
+		PaidAmount func(childComplexity int) int
+		Product    func(childComplexity int) int
+		ProductID  func(childComplexity int) int
+		Quantity   func(childComplexity int) int
+		Side       func(childComplexity int) int
+		Status     func(childComplexity int) int
 	}
 
 	SalesStatus struct {
@@ -288,6 +316,7 @@ type QueryResolver interface {
 	Product(ctx context.Context, id string) (*model.Product, error)
 	Clients(ctx context.Context, filter *model.FilterInput, paging *model.PagingInput) ([]*model.Client, error)
 	Client(ctx context.Context, id string) (*model.Client, error)
+	ClientTree(ctx context.Context, id string) (*model.ClientTree, error)
 	Sales(ctx context.Context, filter *model.FilterInput, paging *model.PagingInput) ([]*model.Sale, error)
 	Sale(ctx context.Context, id string) (*model.Sale, error)
 	Payments(ctx context.Context, filter *model.FilterInput, paging *model.PagingInput) ([]*model.Payment, error)
@@ -572,6 +601,140 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Client.WalletBalance(childComplexity), true
+
+	case "ClientTree.maxLevel":
+		if e.complexity.ClientTree.MaxLevel == nil {
+			break
+		}
+
+		return e.complexity.ClientTree.MaxLevel(childComplexity), true
+	case "ClientTree.nodes":
+		if e.complexity.ClientTree.Nodes == nil {
+			break
+		}
+
+		return e.complexity.ClientTree.Nodes(childComplexity), true
+	case "ClientTree.root":
+		if e.complexity.ClientTree.Root == nil {
+			break
+		}
+
+		return e.complexity.ClientTree.Root(childComplexity), true
+	case "ClientTree.totalNodes":
+		if e.complexity.ClientTree.TotalNodes == nil {
+			break
+		}
+
+		return e.complexity.ClientTree.TotalNodes(childComplexity), true
+
+	case "ClientTreeNode.binaryPairs":
+		if e.complexity.ClientTreeNode.BinaryPairs == nil {
+			break
+		}
+
+		return e.complexity.ClientTreeNode.BinaryPairs(childComplexity), true
+	case "ClientTreeNode.clientId":
+		if e.complexity.ClientTreeNode.ClientID == nil {
+			break
+		}
+
+		return e.complexity.ClientTreeNode.ClientID(childComplexity), true
+	case "ClientTreeNode.cyclesAvailable":
+		if e.complexity.ClientTreeNode.CyclesAvailable == nil {
+			break
+		}
+
+		return e.complexity.ClientTreeNode.CyclesAvailable(childComplexity), true
+	case "ClientTreeNode.cyclesPaidToday":
+		if e.complexity.ClientTreeNode.CyclesPaidToday == nil {
+			break
+		}
+
+		return e.complexity.ClientTreeNode.CyclesPaidToday(childComplexity), true
+	case "ClientTreeNode.id":
+		if e.complexity.ClientTreeNode.ID == nil {
+			break
+		}
+
+		return e.complexity.ClientTreeNode.ID(childComplexity), true
+	case "ClientTreeNode.isActive":
+		if e.complexity.ClientTreeNode.IsActive == nil {
+			break
+		}
+
+		return e.complexity.ClientTreeNode.IsActive(childComplexity), true
+	case "ClientTreeNode.isQualified":
+		if e.complexity.ClientTreeNode.IsQualified == nil {
+			break
+		}
+
+		return e.complexity.ClientTreeNode.IsQualified(childComplexity), true
+	case "ClientTreeNode.leftActives":
+		if e.complexity.ClientTreeNode.LeftActives == nil {
+			break
+		}
+
+		return e.complexity.ClientTreeNode.LeftActives(childComplexity), true
+	case "ClientTreeNode.level":
+		if e.complexity.ClientTreeNode.Level == nil {
+			break
+		}
+
+		return e.complexity.ClientTreeNode.Level(childComplexity), true
+	case "ClientTreeNode.name":
+		if e.complexity.ClientTreeNode.Name == nil {
+			break
+		}
+
+		return e.complexity.ClientTreeNode.Name(childComplexity), true
+	case "ClientTreeNode.networkVolumeLeft":
+		if e.complexity.ClientTreeNode.NetworkVolumeLeft == nil {
+			break
+		}
+
+		return e.complexity.ClientTreeNode.NetworkVolumeLeft(childComplexity), true
+	case "ClientTreeNode.networkVolumeRight":
+		if e.complexity.ClientTreeNode.NetworkVolumeRight == nil {
+			break
+		}
+
+		return e.complexity.ClientTreeNode.NetworkVolumeRight(childComplexity), true
+	case "ClientTreeNode.parentId":
+		if e.complexity.ClientTreeNode.ParentID == nil {
+			break
+		}
+
+		return e.complexity.ClientTreeNode.ParentID(childComplexity), true
+	case "ClientTreeNode.phone":
+		if e.complexity.ClientTreeNode.Phone == nil {
+			break
+		}
+
+		return e.complexity.ClientTreeNode.Phone(childComplexity), true
+	case "ClientTreeNode.position":
+		if e.complexity.ClientTreeNode.Position == nil {
+			break
+		}
+
+		return e.complexity.ClientTreeNode.Position(childComplexity), true
+	case "ClientTreeNode.rightActives":
+		if e.complexity.ClientTreeNode.RightActives == nil {
+			break
+		}
+
+		return e.complexity.ClientTreeNode.RightActives(childComplexity), true
+	case "ClientTreeNode.totalEarnings":
+		if e.complexity.ClientTreeNode.TotalEarnings == nil {
+			break
+		}
+
+		return e.complexity.ClientTreeNode.TotalEarnings(childComplexity), true
+	case "ClientTreeNode.walletBalance":
+		if e.complexity.ClientTreeNode.WalletBalance == nil {
+			break
+		}
+
+		return e.complexity.ClientTreeNode.WalletBalance(childComplexity), true
 
 	case "Commission.amount":
 		if e.complexity.Commission.Amount == nil {
@@ -1118,6 +1281,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Query.Client(childComplexity, args["id"].(string)), true
+	case "Query.clientTree":
+		if e.complexity.Query.ClientTree == nil {
+			break
+		}
+
+		args, err := ec.field_Query_clientTree_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Query.ClientTree(childComplexity, args["id"].(string)), true
 	case "Query.clients":
 		if e.complexity.Query.Clients == nil {
 			break
@@ -1308,6 +1482,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Sale.Note(childComplexity), true
+	case "Sale.paidAmount":
+		if e.complexity.Sale.PaidAmount == nil {
+			break
+		}
+
+		return e.complexity.Sale.PaidAmount(childComplexity), true
 	case "Sale.product":
 		if e.complexity.Sale.Product == nil {
 			break
@@ -1332,18 +1512,6 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Sale.Side(childComplexity), true
-	case "Sale.sponsor":
-		if e.complexity.Sale.Sponsor == nil {
-			break
-		}
-
-		return e.complexity.Sale.Sponsor(childComplexity), true
-	case "Sale.sponsorId":
-		if e.complexity.Sale.SponsorID == nil {
-			break
-		}
-
-		return e.complexity.Sale.SponsorID(childComplexity), true
 	case "Sale.status":
 		if e.complexity.Sale.Status == nil {
 			break
@@ -1832,6 +2000,17 @@ func (ec *executionContext) field_Query_caisseTransactions_args(ctx context.Cont
 		return nil, err
 	}
 	args["paging"] = arg1
+	return args, nil
+}
+
+func (ec *executionContext) field_Query_clientTree_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id", ec.unmarshalNID2string)
+	if err != nil {
+		return nil, err
+	}
+	args["id"] = arg0
 	return args, nil
 }
 
@@ -3413,12 +3592,12 @@ func (ec *executionContext) fieldContext_Client_purchases(_ context.Context, fie
 				return ec.fieldContext_Sale_id(ctx, field)
 			case "clientId":
 				return ec.fieldContext_Sale_clientId(ctx, field)
-			case "sponsorId":
-				return ec.fieldContext_Sale_sponsorId(ctx, field)
 			case "productId":
 				return ec.fieldContext_Sale_productId(ctx, field)
 			case "amount":
 				return ec.fieldContext_Sale_amount(ctx, field)
+			case "paidAmount":
+				return ec.fieldContext_Sale_paidAmount(ctx, field)
 			case "quantity":
 				return ec.fieldContext_Sale_quantity(ctx, field)
 			case "side":
@@ -3431,12 +3610,724 @@ func (ec *executionContext) fieldContext_Client_purchases(_ context.Context, fie
 				return ec.fieldContext_Sale_note(ctx, field)
 			case "client":
 				return ec.fieldContext_Sale_client(ctx, field)
-			case "sponsor":
-				return ec.fieldContext_Sale_sponsor(ctx, field)
 			case "product":
 				return ec.fieldContext_Sale_product(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Sale", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _ClientTree_root(ctx context.Context, field graphql.CollectedField, obj *model.ClientTree) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_ClientTree_root,
+		func(ctx context.Context) (any, error) {
+			return obj.Root, nil
+		},
+		nil,
+		ec.marshalNClientTreeNode2ᚖbureauᚋgraphᚋmodelᚐClientTreeNode,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_ClientTree_root(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ClientTree",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_ClientTreeNode_id(ctx, field)
+			case "clientId":
+				return ec.fieldContext_ClientTreeNode_clientId(ctx, field)
+			case "name":
+				return ec.fieldContext_ClientTreeNode_name(ctx, field)
+			case "phone":
+				return ec.fieldContext_ClientTreeNode_phone(ctx, field)
+			case "parentId":
+				return ec.fieldContext_ClientTreeNode_parentId(ctx, field)
+			case "level":
+				return ec.fieldContext_ClientTreeNode_level(ctx, field)
+			case "position":
+				return ec.fieldContext_ClientTreeNode_position(ctx, field)
+			case "networkVolumeLeft":
+				return ec.fieldContext_ClientTreeNode_networkVolumeLeft(ctx, field)
+			case "networkVolumeRight":
+				return ec.fieldContext_ClientTreeNode_networkVolumeRight(ctx, field)
+			case "binaryPairs":
+				return ec.fieldContext_ClientTreeNode_binaryPairs(ctx, field)
+			case "totalEarnings":
+				return ec.fieldContext_ClientTreeNode_totalEarnings(ctx, field)
+			case "walletBalance":
+				return ec.fieldContext_ClientTreeNode_walletBalance(ctx, field)
+			case "isActive":
+				return ec.fieldContext_ClientTreeNode_isActive(ctx, field)
+			case "leftActives":
+				return ec.fieldContext_ClientTreeNode_leftActives(ctx, field)
+			case "rightActives":
+				return ec.fieldContext_ClientTreeNode_rightActives(ctx, field)
+			case "isQualified":
+				return ec.fieldContext_ClientTreeNode_isQualified(ctx, field)
+			case "cyclesAvailable":
+				return ec.fieldContext_ClientTreeNode_cyclesAvailable(ctx, field)
+			case "cyclesPaidToday":
+				return ec.fieldContext_ClientTreeNode_cyclesPaidToday(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type ClientTreeNode", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _ClientTree_nodes(ctx context.Context, field graphql.CollectedField, obj *model.ClientTree) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_ClientTree_nodes,
+		func(ctx context.Context) (any, error) {
+			return obj.Nodes, nil
+		},
+		nil,
+		ec.marshalNClientTreeNode2ᚕᚖbureauᚋgraphᚋmodelᚐClientTreeNodeᚄ,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_ClientTree_nodes(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ClientTree",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_ClientTreeNode_id(ctx, field)
+			case "clientId":
+				return ec.fieldContext_ClientTreeNode_clientId(ctx, field)
+			case "name":
+				return ec.fieldContext_ClientTreeNode_name(ctx, field)
+			case "phone":
+				return ec.fieldContext_ClientTreeNode_phone(ctx, field)
+			case "parentId":
+				return ec.fieldContext_ClientTreeNode_parentId(ctx, field)
+			case "level":
+				return ec.fieldContext_ClientTreeNode_level(ctx, field)
+			case "position":
+				return ec.fieldContext_ClientTreeNode_position(ctx, field)
+			case "networkVolumeLeft":
+				return ec.fieldContext_ClientTreeNode_networkVolumeLeft(ctx, field)
+			case "networkVolumeRight":
+				return ec.fieldContext_ClientTreeNode_networkVolumeRight(ctx, field)
+			case "binaryPairs":
+				return ec.fieldContext_ClientTreeNode_binaryPairs(ctx, field)
+			case "totalEarnings":
+				return ec.fieldContext_ClientTreeNode_totalEarnings(ctx, field)
+			case "walletBalance":
+				return ec.fieldContext_ClientTreeNode_walletBalance(ctx, field)
+			case "isActive":
+				return ec.fieldContext_ClientTreeNode_isActive(ctx, field)
+			case "leftActives":
+				return ec.fieldContext_ClientTreeNode_leftActives(ctx, field)
+			case "rightActives":
+				return ec.fieldContext_ClientTreeNode_rightActives(ctx, field)
+			case "isQualified":
+				return ec.fieldContext_ClientTreeNode_isQualified(ctx, field)
+			case "cyclesAvailable":
+				return ec.fieldContext_ClientTreeNode_cyclesAvailable(ctx, field)
+			case "cyclesPaidToday":
+				return ec.fieldContext_ClientTreeNode_cyclesPaidToday(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type ClientTreeNode", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _ClientTree_totalNodes(ctx context.Context, field graphql.CollectedField, obj *model.ClientTree) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_ClientTree_totalNodes,
+		func(ctx context.Context) (any, error) {
+			return obj.TotalNodes, nil
+		},
+		nil,
+		ec.marshalNInt2int32,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_ClientTree_totalNodes(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ClientTree",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _ClientTree_maxLevel(ctx context.Context, field graphql.CollectedField, obj *model.ClientTree) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_ClientTree_maxLevel,
+		func(ctx context.Context) (any, error) {
+			return obj.MaxLevel, nil
+		},
+		nil,
+		ec.marshalNInt2int32,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_ClientTree_maxLevel(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ClientTree",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _ClientTreeNode_id(ctx context.Context, field graphql.CollectedField, obj *model.ClientTreeNode) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_ClientTreeNode_id,
+		func(ctx context.Context) (any, error) {
+			return obj.ID, nil
+		},
+		nil,
+		ec.marshalNID2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_ClientTreeNode_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ClientTreeNode",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type ID does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _ClientTreeNode_clientId(ctx context.Context, field graphql.CollectedField, obj *model.ClientTreeNode) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_ClientTreeNode_clientId,
+		func(ctx context.Context) (any, error) {
+			return obj.ClientID, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_ClientTreeNode_clientId(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ClientTreeNode",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _ClientTreeNode_name(ctx context.Context, field graphql.CollectedField, obj *model.ClientTreeNode) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_ClientTreeNode_name,
+		func(ctx context.Context) (any, error) {
+			return obj.Name, nil
+		},
+		nil,
+		ec.marshalNString2string,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_ClientTreeNode_name(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ClientTreeNode",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _ClientTreeNode_phone(ctx context.Context, field graphql.CollectedField, obj *model.ClientTreeNode) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_ClientTreeNode_phone,
+		func(ctx context.Context) (any, error) {
+			return obj.Phone, nil
+		},
+		nil,
+		ec.marshalOString2ᚖstring,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_ClientTreeNode_phone(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ClientTreeNode",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _ClientTreeNode_parentId(ctx context.Context, field graphql.CollectedField, obj *model.ClientTreeNode) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_ClientTreeNode_parentId,
+		func(ctx context.Context) (any, error) {
+			return obj.ParentID, nil
+		},
+		nil,
+		ec.marshalOID2ᚖstring,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_ClientTreeNode_parentId(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ClientTreeNode",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type ID does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _ClientTreeNode_level(ctx context.Context, field graphql.CollectedField, obj *model.ClientTreeNode) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_ClientTreeNode_level,
+		func(ctx context.Context) (any, error) {
+			return obj.Level, nil
+		},
+		nil,
+		ec.marshalNInt2int32,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_ClientTreeNode_level(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ClientTreeNode",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _ClientTreeNode_position(ctx context.Context, field graphql.CollectedField, obj *model.ClientTreeNode) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_ClientTreeNode_position,
+		func(ctx context.Context) (any, error) {
+			return obj.Position, nil
+		},
+		nil,
+		ec.marshalOString2ᚖstring,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_ClientTreeNode_position(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ClientTreeNode",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _ClientTreeNode_networkVolumeLeft(ctx context.Context, field graphql.CollectedField, obj *model.ClientTreeNode) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_ClientTreeNode_networkVolumeLeft,
+		func(ctx context.Context) (any, error) {
+			return obj.NetworkVolumeLeft, nil
+		},
+		nil,
+		ec.marshalNFloat2float64,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_ClientTreeNode_networkVolumeLeft(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ClientTreeNode",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Float does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _ClientTreeNode_networkVolumeRight(ctx context.Context, field graphql.CollectedField, obj *model.ClientTreeNode) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_ClientTreeNode_networkVolumeRight,
+		func(ctx context.Context) (any, error) {
+			return obj.NetworkVolumeRight, nil
+		},
+		nil,
+		ec.marshalNFloat2float64,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_ClientTreeNode_networkVolumeRight(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ClientTreeNode",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Float does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _ClientTreeNode_binaryPairs(ctx context.Context, field graphql.CollectedField, obj *model.ClientTreeNode) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_ClientTreeNode_binaryPairs,
+		func(ctx context.Context) (any, error) {
+			return obj.BinaryPairs, nil
+		},
+		nil,
+		ec.marshalNInt2int32,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_ClientTreeNode_binaryPairs(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ClientTreeNode",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _ClientTreeNode_totalEarnings(ctx context.Context, field graphql.CollectedField, obj *model.ClientTreeNode) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_ClientTreeNode_totalEarnings,
+		func(ctx context.Context) (any, error) {
+			return obj.TotalEarnings, nil
+		},
+		nil,
+		ec.marshalNFloat2float64,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_ClientTreeNode_totalEarnings(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ClientTreeNode",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Float does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _ClientTreeNode_walletBalance(ctx context.Context, field graphql.CollectedField, obj *model.ClientTreeNode) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_ClientTreeNode_walletBalance,
+		func(ctx context.Context) (any, error) {
+			return obj.WalletBalance, nil
+		},
+		nil,
+		ec.marshalNFloat2float64,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_ClientTreeNode_walletBalance(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ClientTreeNode",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Float does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _ClientTreeNode_isActive(ctx context.Context, field graphql.CollectedField, obj *model.ClientTreeNode) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_ClientTreeNode_isActive,
+		func(ctx context.Context) (any, error) {
+			return obj.IsActive, nil
+		},
+		nil,
+		ec.marshalNBoolean2bool,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_ClientTreeNode_isActive(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ClientTreeNode",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Boolean does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _ClientTreeNode_leftActives(ctx context.Context, field graphql.CollectedField, obj *model.ClientTreeNode) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_ClientTreeNode_leftActives,
+		func(ctx context.Context) (any, error) {
+			return obj.LeftActives, nil
+		},
+		nil,
+		ec.marshalNInt2int32,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_ClientTreeNode_leftActives(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ClientTreeNode",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _ClientTreeNode_rightActives(ctx context.Context, field graphql.CollectedField, obj *model.ClientTreeNode) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_ClientTreeNode_rightActives,
+		func(ctx context.Context) (any, error) {
+			return obj.RightActives, nil
+		},
+		nil,
+		ec.marshalNInt2int32,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_ClientTreeNode_rightActives(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ClientTreeNode",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _ClientTreeNode_isQualified(ctx context.Context, field graphql.CollectedField, obj *model.ClientTreeNode) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_ClientTreeNode_isQualified,
+		func(ctx context.Context) (any, error) {
+			return obj.IsQualified, nil
+		},
+		nil,
+		ec.marshalNBoolean2bool,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_ClientTreeNode_isQualified(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ClientTreeNode",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Boolean does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _ClientTreeNode_cyclesAvailable(ctx context.Context, field graphql.CollectedField, obj *model.ClientTreeNode) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_ClientTreeNode_cyclesAvailable,
+		func(ctx context.Context) (any, error) {
+			return obj.CyclesAvailable, nil
+		},
+		nil,
+		ec.marshalOInt2ᚖint32,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_ClientTreeNode_cyclesAvailable(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ClientTreeNode",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _ClientTreeNode_cyclesPaidToday(ctx context.Context, field graphql.CollectedField, obj *model.ClientTreeNode) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_ClientTreeNode_cyclesPaidToday,
+		func(ctx context.Context) (any, error) {
+			return obj.CyclesPaidToday, nil
+		},
+		nil,
+		ec.marshalOInt2ᚖint32,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_ClientTreeNode_cyclesPaidToday(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ClientTreeNode",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
 		},
 	}
 	return fc, nil
@@ -5008,12 +5899,12 @@ func (ec *executionContext) fieldContext_Mutation_saleCreate(ctx context.Context
 				return ec.fieldContext_Sale_id(ctx, field)
 			case "clientId":
 				return ec.fieldContext_Sale_clientId(ctx, field)
-			case "sponsorId":
-				return ec.fieldContext_Sale_sponsorId(ctx, field)
 			case "productId":
 				return ec.fieldContext_Sale_productId(ctx, field)
 			case "amount":
 				return ec.fieldContext_Sale_amount(ctx, field)
+			case "paidAmount":
+				return ec.fieldContext_Sale_paidAmount(ctx, field)
 			case "quantity":
 				return ec.fieldContext_Sale_quantity(ctx, field)
 			case "side":
@@ -5026,8 +5917,6 @@ func (ec *executionContext) fieldContext_Mutation_saleCreate(ctx context.Context
 				return ec.fieldContext_Sale_note(ctx, field)
 			case "client":
 				return ec.fieldContext_Sale_client(ctx, field)
-			case "sponsor":
-				return ec.fieldContext_Sale_sponsor(ctx, field)
 			case "product":
 				return ec.fieldContext_Sale_product(ctx, field)
 			}
@@ -5077,12 +5966,12 @@ func (ec *executionContext) fieldContext_Mutation_saleUpdate(ctx context.Context
 				return ec.fieldContext_Sale_id(ctx, field)
 			case "clientId":
 				return ec.fieldContext_Sale_clientId(ctx, field)
-			case "sponsorId":
-				return ec.fieldContext_Sale_sponsorId(ctx, field)
 			case "productId":
 				return ec.fieldContext_Sale_productId(ctx, field)
 			case "amount":
 				return ec.fieldContext_Sale_amount(ctx, field)
+			case "paidAmount":
+				return ec.fieldContext_Sale_paidAmount(ctx, field)
 			case "quantity":
 				return ec.fieldContext_Sale_quantity(ctx, field)
 			case "side":
@@ -5095,8 +5984,6 @@ func (ec *executionContext) fieldContext_Mutation_saleUpdate(ctx context.Context
 				return ec.fieldContext_Sale_note(ctx, field)
 			case "client":
 				return ec.fieldContext_Sale_client(ctx, field)
-			case "sponsor":
-				return ec.fieldContext_Sale_sponsor(ctx, field)
 			case "product":
 				return ec.fieldContext_Sale_product(ctx, field)
 			}
@@ -6512,6 +7399,57 @@ func (ec *executionContext) fieldContext_Query_client(ctx context.Context, field
 	return fc, nil
 }
 
+func (ec *executionContext) _Query_clientTree(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Query_clientTree,
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.resolvers.Query().ClientTree(ctx, fc.Args["id"].(string))
+		},
+		nil,
+		ec.marshalNClientTree2ᚖbureauᚋgraphᚋmodelᚐClientTree,
+		true,
+		true,
+	)
+}
+
+func (ec *executionContext) fieldContext_Query_clientTree(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "root":
+				return ec.fieldContext_ClientTree_root(ctx, field)
+			case "nodes":
+				return ec.fieldContext_ClientTree_nodes(ctx, field)
+			case "totalNodes":
+				return ec.fieldContext_ClientTree_totalNodes(ctx, field)
+			case "maxLevel":
+				return ec.fieldContext_ClientTree_maxLevel(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type ClientTree", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_clientTree_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Query_sales(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -6541,12 +7479,12 @@ func (ec *executionContext) fieldContext_Query_sales(ctx context.Context, field 
 				return ec.fieldContext_Sale_id(ctx, field)
 			case "clientId":
 				return ec.fieldContext_Sale_clientId(ctx, field)
-			case "sponsorId":
-				return ec.fieldContext_Sale_sponsorId(ctx, field)
 			case "productId":
 				return ec.fieldContext_Sale_productId(ctx, field)
 			case "amount":
 				return ec.fieldContext_Sale_amount(ctx, field)
+			case "paidAmount":
+				return ec.fieldContext_Sale_paidAmount(ctx, field)
 			case "quantity":
 				return ec.fieldContext_Sale_quantity(ctx, field)
 			case "side":
@@ -6559,8 +7497,6 @@ func (ec *executionContext) fieldContext_Query_sales(ctx context.Context, field 
 				return ec.fieldContext_Sale_note(ctx, field)
 			case "client":
 				return ec.fieldContext_Sale_client(ctx, field)
-			case "sponsor":
-				return ec.fieldContext_Sale_sponsor(ctx, field)
 			case "product":
 				return ec.fieldContext_Sale_product(ctx, field)
 			}
@@ -6610,12 +7546,12 @@ func (ec *executionContext) fieldContext_Query_sale(ctx context.Context, field g
 				return ec.fieldContext_Sale_id(ctx, field)
 			case "clientId":
 				return ec.fieldContext_Sale_clientId(ctx, field)
-			case "sponsorId":
-				return ec.fieldContext_Sale_sponsorId(ctx, field)
 			case "productId":
 				return ec.fieldContext_Sale_productId(ctx, field)
 			case "amount":
 				return ec.fieldContext_Sale_amount(ctx, field)
+			case "paidAmount":
+				return ec.fieldContext_Sale_paidAmount(ctx, field)
 			case "quantity":
 				return ec.fieldContext_Sale_quantity(ctx, field)
 			case "side":
@@ -6628,8 +7564,6 @@ func (ec *executionContext) fieldContext_Query_sale(ctx context.Context, field g
 				return ec.fieldContext_Sale_note(ctx, field)
 			case "client":
 				return ec.fieldContext_Sale_client(ctx, field)
-			case "sponsor":
-				return ec.fieldContext_Sale_sponsor(ctx, field)
 			case "product":
 				return ec.fieldContext_Sale_product(ctx, field)
 			}
@@ -7439,35 +8373,6 @@ func (ec *executionContext) fieldContext_Sale_clientId(_ context.Context, field 
 	return fc, nil
 }
 
-func (ec *executionContext) _Sale_sponsorId(ctx context.Context, field graphql.CollectedField, obj *model.Sale) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		ec.fieldContext_Sale_sponsorId,
-		func(ctx context.Context) (any, error) {
-			return obj.SponsorID, nil
-		},
-		nil,
-		ec.marshalNID2string,
-		true,
-		true,
-	)
-}
-
-func (ec *executionContext) fieldContext_Sale_sponsorId(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Sale",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type ID does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
 func (ec *executionContext) _Sale_productId(ctx context.Context, field graphql.CollectedField, obj *model.Sale) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -7514,6 +8419,35 @@ func (ec *executionContext) _Sale_amount(ctx context.Context, field graphql.Coll
 }
 
 func (ec *executionContext) fieldContext_Sale_amount(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Sale",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Float does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Sale_paidAmount(ctx context.Context, field graphql.CollectedField, obj *model.Sale) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		ec.fieldContext_Sale_paidAmount,
+		func(ctx context.Context) (any, error) {
+			return obj.PaidAmount, nil
+		},
+		nil,
+		ec.marshalOFloat2ᚖfloat64,
+		true,
+		false,
+	)
+}
+
+func (ec *executionContext) fieldContext_Sale_paidAmount(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "Sale",
 		Field:      field,
@@ -7748,83 +8682,6 @@ func (ec *executionContext) fieldContext_Sale_client(_ context.Context, field gr
 	return fc, nil
 }
 
-func (ec *executionContext) _Sale_sponsor(ctx context.Context, field graphql.CollectedField, obj *model.Sale) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		ec.fieldContext_Sale_sponsor,
-		func(ctx context.Context) (any, error) {
-			return obj.Sponsor, nil
-		},
-		nil,
-		ec.marshalOClient2ᚖbureauᚋgraphᚋmodelᚐClient,
-		true,
-		false,
-	)
-}
-
-func (ec *executionContext) fieldContext_Sale_sponsor(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "Sale",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			switch field.Name {
-			case "id":
-				return ec.fieldContext_Client_id(ctx, field)
-			case "clientId":
-				return ec.fieldContext_Client_clientId(ctx, field)
-			case "name":
-				return ec.fieldContext_Client_name(ctx, field)
-			case "phone":
-				return ec.fieldContext_Client_phone(ctx, field)
-			case "nn":
-				return ec.fieldContext_Client_nn(ctx, field)
-			case "address":
-				return ec.fieldContext_Client_address(ctx, field)
-			case "avatar":
-				return ec.fieldContext_Client_avatar(ctx, field)
-			case "sponsorId":
-				return ec.fieldContext_Client_sponsorId(ctx, field)
-			case "position":
-				return ec.fieldContext_Client_position(ctx, field)
-			case "leftChildId":
-				return ec.fieldContext_Client_leftChildId(ctx, field)
-			case "rightChildId":
-				return ec.fieldContext_Client_rightChildId(ctx, field)
-			case "joinDate":
-				return ec.fieldContext_Client_joinDate(ctx, field)
-			case "totalEarnings":
-				return ec.fieldContext_Client_totalEarnings(ctx, field)
-			case "walletBalance":
-				return ec.fieldContext_Client_walletBalance(ctx, field)
-			case "points":
-				return ec.fieldContext_Client_points(ctx, field)
-			case "networkVolumeLeft":
-				return ec.fieldContext_Client_networkVolumeLeft(ctx, field)
-			case "networkVolumeRight":
-				return ec.fieldContext_Client_networkVolumeRight(ctx, field)
-			case "binaryPairs":
-				return ec.fieldContext_Client_binaryPairs(ctx, field)
-			case "sponsor":
-				return ec.fieldContext_Client_sponsor(ctx, field)
-			case "leftChild":
-				return ec.fieldContext_Client_leftChild(ctx, field)
-			case "rightChild":
-				return ec.fieldContext_Client_rightChild(ctx, field)
-			case "transactions":
-				return ec.fieldContext_Client_transactions(ctx, field)
-			case "purchases":
-				return ec.fieldContext_Client_purchases(ctx, field)
-			}
-			return nil, fmt.Errorf("no field named %q was found under type Client", field.Name)
-		},
-	}
-	return fc, nil
-}
-
 func (ec *executionContext) _Sale_product(ctx context.Context, field graphql.CollectedField, obj *model.Sale) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -7989,12 +8846,12 @@ func (ec *executionContext) fieldContext_Subscription_onNewSale(_ context.Contex
 				return ec.fieldContext_Sale_id(ctx, field)
 			case "clientId":
 				return ec.fieldContext_Sale_clientId(ctx, field)
-			case "sponsorId":
-				return ec.fieldContext_Sale_sponsorId(ctx, field)
 			case "productId":
 				return ec.fieldContext_Sale_productId(ctx, field)
 			case "amount":
 				return ec.fieldContext_Sale_amount(ctx, field)
+			case "paidAmount":
+				return ec.fieldContext_Sale_paidAmount(ctx, field)
 			case "quantity":
 				return ec.fieldContext_Sale_quantity(ctx, field)
 			case "side":
@@ -8007,8 +8864,6 @@ func (ec *executionContext) fieldContext_Subscription_onNewSale(_ context.Contex
 				return ec.fieldContext_Sale_note(ctx, field)
 			case "client":
 				return ec.fieldContext_Sale_client(ctx, field)
-			case "sponsor":
-				return ec.fieldContext_Sale_sponsor(ctx, field)
 			case "product":
 				return ec.fieldContext_Sale_product(ctx, field)
 			}
@@ -10196,7 +11051,7 @@ func (ec *executionContext) unmarshalInputSaleInput(ctx context.Context, obj any
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"clientId", "productId", "quantity", "amount", "status", "note"}
+	fieldsInOrder := [...]string{"clientId", "productId", "quantity", "amount", "paidAmount", "status", "note"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -10231,6 +11086,13 @@ func (ec *executionContext) unmarshalInputSaleInput(ctx context.Context, obj any
 				return it, err
 			}
 			it.Amount = data
+		case "paidAmount":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("paidAmount"))
+			data, err := ec.unmarshalOFloat2ᚖfloat64(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.PaidAmount = data
 		case "status":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("status"))
 			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
@@ -10532,6 +11394,169 @@ func (ec *executionContext) _Client(ctx context.Context, sel ast.SelectionSet, o
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var clientTreeImplementors = []string{"ClientTree"}
+
+func (ec *executionContext) _ClientTree(ctx context.Context, sel ast.SelectionSet, obj *model.ClientTree) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, clientTreeImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("ClientTree")
+		case "root":
+			out.Values[i] = ec._ClientTree_root(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "nodes":
+			out.Values[i] = ec._ClientTree_nodes(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "totalNodes":
+			out.Values[i] = ec._ClientTree_totalNodes(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "maxLevel":
+			out.Values[i] = ec._ClientTree_maxLevel(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var clientTreeNodeImplementors = []string{"ClientTreeNode"}
+
+func (ec *executionContext) _ClientTreeNode(ctx context.Context, sel ast.SelectionSet, obj *model.ClientTreeNode) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, clientTreeNodeImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("ClientTreeNode")
+		case "id":
+			out.Values[i] = ec._ClientTreeNode_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "clientId":
+			out.Values[i] = ec._ClientTreeNode_clientId(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "name":
+			out.Values[i] = ec._ClientTreeNode_name(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "phone":
+			out.Values[i] = ec._ClientTreeNode_phone(ctx, field, obj)
+		case "parentId":
+			out.Values[i] = ec._ClientTreeNode_parentId(ctx, field, obj)
+		case "level":
+			out.Values[i] = ec._ClientTreeNode_level(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "position":
+			out.Values[i] = ec._ClientTreeNode_position(ctx, field, obj)
+		case "networkVolumeLeft":
+			out.Values[i] = ec._ClientTreeNode_networkVolumeLeft(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "networkVolumeRight":
+			out.Values[i] = ec._ClientTreeNode_networkVolumeRight(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "binaryPairs":
+			out.Values[i] = ec._ClientTreeNode_binaryPairs(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "totalEarnings":
+			out.Values[i] = ec._ClientTreeNode_totalEarnings(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "walletBalance":
+			out.Values[i] = ec._ClientTreeNode_walletBalance(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "isActive":
+			out.Values[i] = ec._ClientTreeNode_isActive(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "leftActives":
+			out.Values[i] = ec._ClientTreeNode_leftActives(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "rightActives":
+			out.Values[i] = ec._ClientTreeNode_rightActives(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "isQualified":
+			out.Values[i] = ec._ClientTreeNode_isQualified(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "cyclesAvailable":
+			out.Values[i] = ec._ClientTreeNode_cyclesAvailable(ctx, field, obj)
+		case "cyclesPaidToday":
+			out.Values[i] = ec._ClientTreeNode_cyclesPaidToday(ctx, field, obj)
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -11326,6 +12351,28 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 			}
 
 			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "clientTree":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_clientTree(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
 		case "sales":
 			field := field
 
@@ -11645,11 +12692,6 @@ func (ec *executionContext) _Sale(ctx context.Context, sel ast.SelectionSet, obj
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
-		case "sponsorId":
-			out.Values[i] = ec._Sale_sponsorId(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
 		case "productId":
 			out.Values[i] = ec._Sale_productId(ctx, field, obj)
 		case "amount":
@@ -11657,6 +12699,8 @@ func (ec *executionContext) _Sale(ctx context.Context, sel ast.SelectionSet, obj
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		case "paidAmount":
+			out.Values[i] = ec._Sale_paidAmount(ctx, field, obj)
 		case "quantity":
 			out.Values[i] = ec._Sale_quantity(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -11678,8 +12722,6 @@ func (ec *executionContext) _Sale(ctx context.Context, sel ast.SelectionSet, obj
 			out.Values[i] = ec._Sale_note(ctx, field, obj)
 		case "client":
 			out.Values[i] = ec._Sale_client(ctx, field, obj)
-		case "sponsor":
-			out.Values[i] = ec._Sale_sponsor(ctx, field, obj)
 		case "product":
 			out.Values[i] = ec._Sale_product(ctx, field, obj)
 		default:
@@ -12387,6 +13429,74 @@ func (ec *executionContext) unmarshalNClientInput2bureauᚋgraphᚋmodelᚐClien
 func (ec *executionContext) unmarshalNClientLoginInput2bureauᚋgraphᚋmodelᚐClientLoginInput(ctx context.Context, v any) (model.ClientLoginInput, error) {
 	res, err := ec.unmarshalInputClientLoginInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNClientTree2bureauᚋgraphᚋmodelᚐClientTree(ctx context.Context, sel ast.SelectionSet, v model.ClientTree) graphql.Marshaler {
+	return ec._ClientTree(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNClientTree2ᚖbureauᚋgraphᚋmodelᚐClientTree(ctx context.Context, sel ast.SelectionSet, v *model.ClientTree) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._ClientTree(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNClientTreeNode2ᚕᚖbureauᚋgraphᚋmodelᚐClientTreeNodeᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.ClientTreeNode) graphql.Marshaler {
+	ret := make(graphql.Array, len(v))
+	var wg sync.WaitGroup
+	isLen1 := len(v) == 1
+	if !isLen1 {
+		wg.Add(len(v))
+	}
+	for i := range v {
+		i := i
+		fc := &graphql.FieldContext{
+			Index:  &i,
+			Result: &v[i],
+		}
+		ctx := graphql.WithFieldContext(ctx, fc)
+		f := func(i int) {
+			defer func() {
+				if r := recover(); r != nil {
+					ec.Error(ctx, ec.Recover(ctx, r))
+					ret = nil
+				}
+			}()
+			if !isLen1 {
+				defer wg.Done()
+			}
+			ret[i] = ec.marshalNClientTreeNode2ᚖbureauᚋgraphᚋmodelᚐClientTreeNode(ctx, sel, v[i])
+		}
+		if isLen1 {
+			f(i)
+		} else {
+			go f(i)
+		}
+
+	}
+	wg.Wait()
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNClientTreeNode2ᚖbureauᚋgraphᚋmodelᚐClientTreeNode(ctx context.Context, sel ast.SelectionSet, v *model.ClientTreeNode) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._ClientTreeNode(ctx, sel, v)
 }
 
 func (ec *executionContext) marshalNCommission2bureauᚋgraphᚋmodelᚐCommission(ctx context.Context, sel ast.SelectionSet, v model.Commission) graphql.Marshaler {

@@ -1,0 +1,78 @@
+# Configuration App Platform pour DigitalOcean
+# Usage: doctl apps create --spec app.yaml
+
+name: bureau-mlm
+region: nyc
+
+# Services
+services:
+  # Gateway GraphQL
+  - name: gateway
+    github:
+      repo: your-username/your-repo  # Remplacez par votre repo
+      branch: main
+      deploy_on_push: true
+    dockerfile_path: gateway/Dockerfile
+    dockerfile_context: gateway
+    http_port: 8080
+    instance_count: 1
+    instance_size_slug: basic-xxs
+    envs:
+      - key: TREE_SERVICE_URL
+        value: ${tree-service.PUBLIC_URL}
+      - key: GATEWAY_PORT
+        value: "8080"
+    routes:
+      - path: /
+    health_check:
+      http_path: /query
+      initial_delay_seconds: 30
+      period_seconds: 10
+      timeout_seconds: 5
+      failure_threshold: 3
+
+  # Tree Service
+  - name: tree-service
+    github:
+      repo: your-username/your-repo  # Remplacez par votre repo
+      branch: main
+      deploy_on_push: true
+    dockerfile_path: services/tree-service/Dockerfile
+    dockerfile_context: services/tree-service
+    http_port: 8082
+    instance_count: 1
+    instance_size_slug: basic-xxs
+    envs:
+      - key: MONGO_URI
+        value: ${db.DATABASE_URL}
+        type: SECRET
+      - key: MONGO_DB_NAME
+        value: "bureau"
+      - key: TREE_SERVICE_PORT
+        value: "8082"
+      - key: REDIS_URL
+        value: ""  # Optionnel
+    health_check:
+      http_path: /health
+      initial_delay_seconds: 30
+      period_seconds: 10
+      timeout_seconds: 5
+      failure_threshold: 3
+
+# Base de données MongoDB
+databases:
+  - name: db
+    engine: MONGODB
+    version: "7"
+    production: false
+    cluster_name: bureau-db
+    db_name: bureau
+    db_user: bureau
+
+# Variables d'environnement globales (optionnel)
+# envs:
+#   - key: NODE_ENV
+#     value: production
+#     scope: RUN_AND_BUILD_TIME
+
+

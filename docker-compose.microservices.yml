@@ -1,0 +1,58 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:7
+    container_name: bureau-mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    environment:
+      MONGO_INITDB_DATABASE: bureau
+    networks:
+      - bureau-network
+
+  tree-service:
+    build:
+      context: ./services/tree-service
+      dockerfile: Dockerfile
+    container_name: bureau-tree-service
+    ports:
+      - "8082:8082"
+    environment:
+      MONGO_URI: mongodb://mongodb:27017
+      MONGO_DB_NAME: bureau
+      TREE_SERVICE_PORT: 8082
+      REDIS_URL: "" # Optionnel
+    depends_on:
+      - mongodb
+    networks:
+      - bureau-network
+    restart: unless-stopped
+
+  gateway:
+    build:
+      context: ./gateway
+      dockerfile: Dockerfile
+    container_name: bureau-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      TREE_SERVICE_URL: http://tree-service:8082
+      GATEWAY_PORT: 8080
+    depends_on:
+      - tree-service
+    networks:
+      - bureau-network
+    restart: unless-stopped
+
+volumes:
+  mongodb_data:
+
+networks:
+  bureau-network:
+    driver: bridge
+
+
+

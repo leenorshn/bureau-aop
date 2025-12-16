@@ -128,3 +128,5 @@ make generate-gql
 - ✅ **Gestion des paiements**
 - ✅ **Statistiques dashboard**
 
+-gcloud builds submit --tag gcr.io/bureaumlmg/bureau
+
