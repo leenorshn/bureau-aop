@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"bureau/internal/models"
@@ -246,6 +247,29 @@ func (r *ClientRepository) UpdateEarnings(ctx context.Context, id string, totalE
 	return err
 }
 
+func (r *ClientRepository) UpdatePassword(ctx context.Context, id string, passwordHash string) error {
+	objectID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return err
+	}
+
+	_, err = r.collection.UpdateOne(ctx, bson.M{"_id": objectID}, bson.M{
+		"$set": bson.M{
+			"passwordHash": passwordHash,
+		},
+	})
+	return err
+}
+
+func (r *ClientRepository) UpdatePasswordByClientID(ctx context.Context, clientID string, passwordHash string) error {
+	_, err := r.collection.UpdateOne(ctx, bson.M{"clientId": clientID}, bson.M{
+		"$set": bson.M{
+			"passwordHash": passwordHash,
+		},
+	})
+	return err
+}
+
 func (r *ClientRepository) UpdatePoints(ctx context.Context, id string, points float64) error {
 	objectID, err := primitive.ObjectIDFromHex(id)
 	if err != nil {
@@ -328,6 +352,133 @@ func (r *ClientRepository) GetBySponsorID(ctx context.Context, sponsorID string)
 	var clients []*models.Client
 	if err = cursor.All(ctx, &clients); err != nil {
 		return nil, err
+	}
+
+	return clients, nil
+}
+
+// GetSubtreeWithGraphLookup charge tout le sous-arbre d'un client en une seule requête
+// en utilisant l'agrégation MongoDB $graphLookup pour optimiser les performances
+// Cette méthode utilise $graphLookup pour charger récursivement tous les descendants
+func (r *ClientRepository) GetSubtreeWithGraphLookup(ctx context.Context, rootID string, maxDepth int) ([]*models.Client, error) {
+	rootObjectID, err := primitive.ObjectIDFromHex(rootID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid root client ID: %w", err)
+	}
+
+	// Construire les options pour leftChildId graphLookup
+	leftGraphLookup := bson.M{
+		"from":             "clients",
+		"startWith":        "$leftChildId",
+		"connectFromField": "leftChildId",
+		"connectToField":   "_id",
+		"as":               "leftDescendants",
+		"depthField":       "depth",
+	}
+	if maxDepth > 0 {
+		leftGraphLookup["maxDepth"] = maxDepth
+	}
+
+	// Construire les options pour rightChildId graphLookup
+	rightGraphLookup := bson.M{
+		"from":             "clients",
+		"startWith":        "$rightChildId",
+		"connectFromField": "rightChildId",
+		"connectToField":   "_id",
+		"as":               "rightDescendants",
+		"depthField":       "depth",
+	}
+	if maxDepth > 0 {
+		rightGraphLookup["maxDepth"] = maxDepth
+	}
+
+	// Pipeline principal utilisant $graphLookup
+	pipeline := []bson.M{
+		// Étape 1: Trouver le nœud racine
+		{
+			"$match": bson.M{"_id": rootObjectID},
+		},
+		// Étape 2: Utiliser $graphLookup pour charger tous les descendants via leftChildId
+		{
+			"$graphLookup": leftGraphLookup,
+		},
+		// Étape 3: Utiliser $graphLookup pour charger tous les descendants via rightChildId
+		{
+			"$graphLookup": rightGraphLookup,
+		},
+		// Étape 4: Combiner les descendants gauche et droite en un seul tableau
+		{
+			"$addFields": bson.M{
+				"allDescendants": bson.M{
+					"$setUnion": []interface{}{
+						"$leftDescendants",
+						"$rightDescendants",
+					},
+				},
+			},
+		},
+		// Étape 5: Ajouter la racine au tableau de tous les nœuds
+		{
+			"$addFields": bson.M{
+				"allNodes": bson.M{
+					"$concatArrays": []interface{}{
+						[]interface{}{"$$ROOT"},
+						"$allDescendants",
+					},
+				},
+			},
+		},
+		// Étape 6: Déstructurer pour obtenir un document par nœud
+		{
+			"$unwind": "$allNodes",
+		},
+		// Étape 7: Remplacer la racine par chaque nœud
+		{
+			"$replaceRoot": bson.M{
+				"newRoot": "$allNodes",
+			},
+		},
+		// Étape 8: Dédupliquer par _id (au cas où il y aurait des doublons)
+		{
+			"$group": bson.M{
+				"_id":                "$_id",
+				"clientId":           bson.M{"$first": "$clientId"},
+				"name":               bson.M{"$first": "$name"},
+				"phone":              bson.M{"$first": "$phone"},
+				"nn":                 bson.M{"$first": "$nn"},
+				"address":            bson.M{"$first": "$address"},
+				"avatar":             bson.M{"$first": "$avatar"},
+				"sponsorId":          bson.M{"$first": "$sponsorId"},
+				"position":           bson.M{"$first": "$position"},
+				"leftChildId":        bson.M{"$first": "$leftChildId"},
+				"rightChildId":       bson.M{"$first": "$rightChildId"},
+				"joinDate":           bson.M{"$first": "$joinDate"},
+				"networkVolumeLeft":  bson.M{"$first": "$networkVolumeLeft"},
+				"networkVolumeRight": bson.M{"$first": "$networkVolumeRight"},
+				"binaryPairs":        bson.M{"$first": "$binaryPairs"},
+				"totalEarnings":      bson.M{"$first": "$totalEarnings"},
+				"walletBalance":      bson.M{"$first": "$walletBalance"},
+				"points":             bson.M{"$first": "$points"},
+			},
+		},
+	}
+
+	// Exécuter l'agrégation
+	cursor, err := r.collection.Aggregate(ctx, pipeline)
+	if err != nil {
+		return nil, fmt.Errorf("failed to aggregate subtree: %w", err)
+	}
+	defer cursor.Close(ctx)
+
+	var results []models.Client
+	if err := cursor.All(ctx, &results); err != nil {
+		return nil, fmt.Errorf("failed to decode subtree results: %w", err)
+	}
+
+	// Convertir en slice de pointeurs
+	clients := make([]*models.Client, len(results))
+	for i := range results {
+		clients[i] = &results[i]
 	}
 
 	return clients, nil

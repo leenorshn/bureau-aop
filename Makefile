@@ -29,6 +29,28 @@ test:
 	@echo "Running tests..."
 	go test -v ./...
 
+# Run unit tests only
+test-unit:
+	@echo "Running unit tests..."
+	go test -v ./internal/auth ./internal/validation
+
+# Run integration tests only
+test-integration:
+	@echo "Running integration tests..."
+	go test -v ./tests/...
+
+# Run end-to-end tests only
+test-e2e:
+	@echo "Running end-to-end tests..."
+	go test -v ./tests/integration_e2e_test.go
+
+# Run tests with coverage
+test-coverage:
+	@echo "Running tests with coverage..."
+	go test -v -coverprofile=coverage.out ./...
+	go tool cover -html=coverage.out -o coverage.html
+	@echo "Coverage report generated: coverage.html"
+
 # Clean build artifacts
 clean:
 	@echo "Cleaning build artifacts..."

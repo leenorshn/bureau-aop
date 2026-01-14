@@ -42,7 +42,13 @@ type BinaryCommissionService struct {
 	cappingRepo    binaryCappingRepository
 	logger         *zap.Logger
 	config         models.BinaryConfig
-	mu             sync.Mutex // Pour éviter les doubles paiements
+	mu             sync.Mutex        // Pour éviter les doubles paiements (fallback si transactions non disponibles)
+	txHelper       transactionHelper // Helper pour les transactions atomiques
+}
+
+// transactionHelper interface pour les transactions
+type transactionHelper interface {
+	ExecuteTransaction(ctx context.Context, fn func(context.Context) error) error
 }
 
 // NewBinaryCommissionService crée un nouveau service de commission binaire
@@ -53,6 +59,7 @@ func NewBinaryCommissionService(
 	cappingRepo binaryCappingRepository,
 	logger *zap.Logger,
 	config models.BinaryConfig,
+	txHelper transactionHelper,
 ) *BinaryCommissionService {
 	return &BinaryCommissionService{
 		clientRepo:     clientRepo,
@@ -61,6 +68,7 @@ func NewBinaryCommissionService(
 		cappingRepo:    cappingRepo,
 		logger:         logger,
 		config:         config,
+		txHelper:       txHelper,
 	}
 }
 
@@ -150,59 +158,125 @@ func (s *BinaryCommissionService) ComputeBinaryCommission(ctx context.Context, c
 	// 7. Calculer le montant
 	amount := float64(cyclesToPay) * s.config.CycleValue
 
-	// 8. Enregistrer le paiement (avec mutex pour éviter double paiement)
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	// 8. Enregistrer le paiement avec transaction atomique
+	var commission *models.Commission
+	var cyclesToPayFinal int
+	var leftRemaining, rightRemaining float64
+	var commissionID string
 
-	// Double vérification après verrouillage
-	cyclesToPayFinal, err := s.applyDailyLimit(ctx, client.ID, cyclesAvailable)
-	if err != nil {
-		return &models.BinaryCommissionResult{
-			Success: false,
-			Reason:  fmt.Sprintf("Erreur lors de la double vérification: %v", err),
-		}, err
+	// Utiliser une transaction atomique pour toutes les opérations critiques
+	if s.txHelper != nil {
+		err = s.txHelper.ExecuteTransaction(ctx, func(txCtx context.Context) error {
+			// Double vérification de la limite journalière dans la transaction
+			var err error
+			cyclesToPayFinal, err = s.applyDailyLimit(txCtx, client.ID, cyclesAvailable)
+			if err != nil {
+				return fmt.Errorf("erreur lors de la vérification de la limite: %w", err)
+			}
+
+			if cyclesToPayFinal == 0 {
+				return nil // Pas d'erreur, juste pas de cycles à payer
+			}
+
+			amount = float64(cyclesToPayFinal) * s.config.CycleValue
+
+			// Créer la commission
+			commission, err = s.recordPayment(txCtx, client.ID, cyclesToPayFinal, amount)
+			if err != nil {
+				return fmt.Errorf("erreur lors de l'enregistrement du paiement: %w", err)
+			}
+
+			// Déduire les volumes utilisés
+			leftRemaining, rightRemaining, err = s.deductVolume(txCtx, client.ID, legs, cyclesToPayFinal)
+			if err != nil {
+				return fmt.Errorf("erreur lors de la déduction des volumes: %w", err)
+			}
+
+			// Mettre à jour les gains du client
+			err = s.updateClientEarnings(txCtx, client.ID.Hex(), amount)
+			if err != nil {
+				return fmt.Errorf("erreur lors de la mise à jour des gains: %w", err)
+			}
+
+			return nil
+		})
+
+		if err != nil {
+			return &models.BinaryCommissionResult{
+				Success: false,
+				Reason:  fmt.Sprintf("Erreur lors de la transaction atomique: %v", err),
+			}, err
+		}
+
+		if cyclesToPayFinal == 0 {
+			return &models.BinaryCommissionResult{
+				Success:              true,
+				Qualified:            true,
+				CyclesAvailable:      cyclesAvailable,
+				CyclesPaid:           0,
+				Reason:               "Limite journalière atteinte",
+				LeftVolumeRemaining:  legs.LeftVolume,
+				RightVolumeRemaining: legs.RightVolume,
+			}, nil
+		}
+
+		commissionID = commission.ID.Hex()
+	} else {
+		// Fallback: utiliser mutex si transactions non disponibles
+		s.mu.Lock()
+		defer s.mu.Unlock()
+
+		// Double vérification après verrouillage
+		cyclesToPayFinal, err = s.applyDailyLimit(ctx, client.ID, cyclesAvailable)
+		if err != nil {
+			return &models.BinaryCommissionResult{
+				Success: false,
+				Reason:  fmt.Sprintf("Erreur lors de la double vérification: %v", err),
+			}, err
+		}
+
+		if cyclesToPayFinal == 0 {
+			return &models.BinaryCommissionResult{
+				Success:              true,
+				Qualified:            true,
+				CyclesAvailable:      cyclesAvailable,
+				CyclesPaid:           0,
+				Reason:               "Limite journalière atteinte (double vérification)",
+				LeftVolumeRemaining:  legs.LeftVolume,
+				RightVolumeRemaining: legs.RightVolume,
+			}, nil
+		}
+
+		amount = float64(cyclesToPayFinal) * s.config.CycleValue
+
+		// Créer la commission
+		commission, err = s.recordPayment(ctx, client.ID, cyclesToPayFinal, amount)
+		if err != nil {
+			return &models.BinaryCommissionResult{
+				Success: false,
+				Reason:  fmt.Sprintf("Erreur lors de l'enregistrement du paiement: %v", err),
+			}, err
+		}
+
+		// Déduire les volumes utilisés
+		leftRemaining, rightRemaining, err = s.deductVolume(ctx, client.ID, legs, cyclesToPayFinal)
+		if err != nil {
+			return &models.BinaryCommissionResult{
+				Success: false,
+				Reason:  fmt.Sprintf("Erreur lors de la déduction des volumes: %v", err),
+			}, err
+		}
+
+		// Mettre à jour les gains du client
+		err = s.updateClientEarnings(ctx, client.ID.Hex(), amount)
+		if err != nil {
+			s.logger.Error("Failed to update client earnings", zap.Error(err))
+			// Ne pas échouer complètement si c'est juste la mise à jour des gains
+		}
+
+		commissionID = commission.ID.Hex()
 	}
 
-	if cyclesToPayFinal == 0 {
-		return &models.BinaryCommissionResult{
-			Success:              true,
-			Qualified:            true,
-			CyclesAvailable:      cyclesAvailable,
-			CyclesPaid:           0,
-			Reason:               "Limite journalière atteinte (double vérification)",
-			LeftVolumeRemaining:  legs.LeftVolume,
-			RightVolumeRemaining: legs.RightVolume,
-		}, nil
-	}
-
-	amount = float64(cyclesToPayFinal) * s.config.CycleValue
-
-	// 9. Créer la commission
-	commission, err := s.recordPayment(ctx, client.ID, cyclesToPayFinal, amount)
-	if err != nil {
-		return &models.BinaryCommissionResult{
-			Success: false,
-			Reason:  fmt.Sprintf("Erreur lors de l'enregistrement du paiement: %v", err),
-		}, err
-	}
-
-	// 10. Déduire les volumes utilisés
-	leftRemaining, rightRemaining, err := s.deductVolume(ctx, client.ID, legs, cyclesToPayFinal)
-	if err != nil {
-		return &models.BinaryCommissionResult{
-			Success: false,
-			Reason:  fmt.Sprintf("Erreur lors de la déduction des volumes: %v", err),
-		}, err
-	}
-
-	// 11. Mettre à jour les gains du client
-	err = s.updateClientEarnings(ctx, client.ID.Hex(), amount)
-	if err != nil {
-		s.logger.Error("Failed to update client earnings", zap.Error(err))
-		// Ne pas échouer complètement si c'est juste la mise à jour des gains
-	}
-
-	commissionID := commission.ID.Hex()
 	return &models.BinaryCommissionResult{
 		Success:              true,
 		Qualified:            true,

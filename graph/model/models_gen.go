@@ -37,6 +37,11 @@ type CaisseTransactionInput struct {
 	ReferenceType *string `json:"referenceType,omitempty"`
 }
 
+type ChangePasswordInput struct {
+	CurrentPassword string `json:"currentPassword"`
+	NewPassword     string `json:"newPassword"`
+}
+
 type Client struct {
 	ID                 string     `json:"id"`
 	ClientID           string     `json:"clientId"`
@@ -237,6 +242,21 @@ type RefreshTokenInput struct {
 	Token string `json:"token"`
 }
 
+type ResetClientPasswordInput struct {
+	ClientID    string `json:"clientId"`
+	NewPassword string `json:"newPassword"`
+}
+
+type ResetPasswordByEmailInput struct {
+	Email       string `json:"email"`
+	NewPassword string `json:"newPassword"`
+}
+
+type ResetPasswordInput struct {
+	ID          string `json:"id"`
+	NewPassword string `json:"newPassword"`
+}
+
 type Sale struct {
 	ID         string   `json:"id"`
 	ClientID   string   `json:"clientId"`
@@ -254,7 +274,7 @@ type Sale struct {
 
 type SaleInput struct {
 	ClientID   string   `json:"clientId"`
-	ProductID  string   `json:"productId"`
+	ProductID  *string  `json:"productId,omitempty"`
 	Quantity   int32    `json:"quantity"`
 	Amount     float64  `json:"amount"`
 	PaidAmount *float64 `json:"paidAmount,omitempty"`

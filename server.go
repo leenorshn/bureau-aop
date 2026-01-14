@@ -105,6 +105,9 @@ func main() {
 	authService := service.NewAuthService(adminRepo, jwtService, logger)
 	caisseService := service.NewCaisseService(caisseRepo, logger)
 	
+	// Initialize Transaction Helper for atomic operations
+	txHelper := store.NewTransactionHelper(client)
+	
 	// Initialize Binary Commission Service with new algorithm
 	binaryConfig := models.BinaryConfig{
 		CycleValue:         cfg.BinaryCycleValue,
@@ -121,6 +124,7 @@ func main() {
 		binaryCappingRepo,
 		logger,
 		binaryConfig,
+		txHelper,
 	)
 
 	// Initialize GraphQL resolver

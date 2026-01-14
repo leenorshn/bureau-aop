@@ -94,8 +94,12 @@ func (s *CaisseService) UpdateBalance(ctx context.Context, balance float64) (*mo
 		return nil, err
 	}
 
-	caisse.Balance = balance
-	caisse.UpdatedAt = caisse.UpdatedAt // Will be updated by repository
-	return caisse, nil
+	// Retrieve updated caisse from repository to get the updated UpdatedAt timestamp
+	updatedCaisse, err := s.caisseRepo.GetOrCreate(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return updatedCaisse, nil
 }
 

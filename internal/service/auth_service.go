@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"bureau/internal/auth"
 	"bureau/internal/models"
@@ -112,4 +113,42 @@ func (s *AuthService) ValidateToken(ctx context.Context, tokenString string) (*m
 // GetJWTService returns the JWT service for external use
 func (s *AuthService) GetJWTService() *auth.JWTService {
 	return s.jwtService
+}
+
+// UpdateAdminPassword updates an admin's password
+func (s *AuthService) UpdateAdminPassword(ctx context.Context, id string, newPassword string) error {
+	// Validate password strength
+	if err := auth.ValidatePassword(newPassword); err != nil {
+		return err
+	}
+
+	// Hash the new password
+	hashedPassword, err := auth.HashPassword(newPassword)
+	if err != nil {
+		return fmt.Errorf("failed to hash password: %w", err)
+	}
+
+	return s.adminRepo.UpdatePassword(ctx, id, hashedPassword)
+}
+
+// UpdateAdminPasswordByEmail updates an admin's password by email
+func (s *AuthService) UpdateAdminPasswordByEmail(ctx context.Context, email string, newPassword string) error {
+	// Get admin by email
+	admin, err := s.adminRepo.GetByEmail(ctx, email)
+	if err != nil {
+		return errors.New("admin introuvable")
+	}
+
+	// Validate password strength
+	if err := auth.ValidatePassword(newPassword); err != nil {
+		return err
+	}
+
+	// Hash the new password
+	hashedPassword, err := auth.HashPassword(newPassword)
+	if err != nil {
+		return fmt.Errorf("failed to hash password: %w", err)
+	}
+
+	return s.adminRepo.UpdatePassword(ctx, admin.ID.Hex(), hashedPassword)
 }

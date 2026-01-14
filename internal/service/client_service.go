@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"bureau/internal/auth"
 	"bureau/internal/models"
 	"bureau/internal/store"
 	"bureau/internal/utils"
@@ -48,6 +49,16 @@ func (s *ClientService) GetAll(ctx context.Context, filter *models.FilterInput, 
 
 func (s *ClientService) GetByID(ctx context.Context, id string) (*models.Client, error) {
 	return s.clientRepo.GetByID(ctx, id)
+}
+
+func (s *ClientService) GetByClientID(ctx context.Context, clientID string) (*models.Client, error) {
+	return s.clientRepo.GetByClientID(ctx, clientID)
+}
+
+// GetSubtreeWithGraphLookup récupère tout le sous-arbre d'un client de manière optimisée
+// en utilisant $graphLookup pour charger tous les descendants en une seule requête
+func (s *ClientService) GetSubtreeWithGraphLookup(ctx context.Context, rootID string, maxDepth int) ([]*models.Client, error) {
+	return s.clientRepo.GetSubtreeWithGraphLookup(ctx, rootID, maxDepth)
 }
 
 func (s *ClientService) Update(ctx context.Context, id string, client *models.Client) (*models.Client, error) {
@@ -344,4 +355,36 @@ func (s *ClientService) HashPassword(password string) (string, error) {
 // AddPoints adds points to a client
 func (s *ClientService) AddPoints(ctx context.Context, clientID string, pointsToAdd float64) error {
 	return s.clientRepo.AddPoints(ctx, clientID, pointsToAdd)
+}
+
+// UpdatePassword updates a client's password by ID
+func (s *ClientService) UpdatePassword(ctx context.Context, id string, newPassword string) error {
+	// Validate password strength
+	if err := auth.ValidatePassword(newPassword); err != nil {
+		return err
+	}
+
+	// Hash the new password
+	hashedPassword, err := s.HashPassword(newPassword)
+	if err != nil {
+		return fmt.Errorf("failed to hash password: %w", err)
+	}
+
+	return s.clientRepo.UpdatePassword(ctx, id, hashedPassword)
+}
+
+// UpdatePasswordByClientID updates a client's password by clientID
+func (s *ClientService) UpdatePasswordByClientID(ctx context.Context, clientID string, newPassword string) error {
+	// Validate password strength
+	if err := auth.ValidatePassword(newPassword); err != nil {
+		return err
+	}
+
+	// Hash the new password
+	hashedPassword, err := s.HashPassword(newPassword)
+	if err != nil {
+		return fmt.Errorf("failed to hash password: %w", err)
+	}
+
+	return s.clientRepo.UpdatePasswordByClientID(ctx, clientID, hashedPassword)
 }

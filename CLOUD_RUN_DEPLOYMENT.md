@@ -1,291 +1,474 @@
 # 🚀 Déploiement sur Google Cloud Run
 
-Ce guide explique comment déployer l'application MLM Bureau sur Google Cloud Run.
+Guide complet pour déployer l'application Bureau MLM sur Google Cloud Run.
 
-## 📋 Prérequis
+## 📋 Table des Matières
 
-1. **Google Cloud CLI** installé et configuré
-2. **Compte Google Cloud** avec facturation activée
-3. **Projet Google Cloud** créé
-4. **APIs activées** : Cloud Run, Cloud Build, Container Registry
+- [Prérequis](#prérequis)
+- [Architecture](#architecture)
+- [Configuration Initiale](#configuration-initiale)
+- [Déploiement](#déploiement)
+- [Gestion et Monitoring](#gestion-et-monitoring)
+- [Coûts](#coûts)
+- [Troubleshooting](#troubleshooting)
 
-## 🛠️ Configuration
+## 🎯 Prérequis
 
-### 1. Installation de Google Cloud CLI
+### 1. Compte Google Cloud
+
+- Créer un compte sur [Google Cloud](https://cloud.google.com)
+- Activer la facturation (carte bancaire requise, mais tier gratuit disponible)
+- **Tier gratuit**: 2 millions de requêtes/mois
+
+### 2. Outils Locaux
 
 ```bash
-# macOS
-brew install google-cloud-sdk
+# Vérifier que Git est installé
+git --version
 
-# Linux
+# Vérifier que Docker est installé (optionnel)
+docker --version
+```
+
+### 3. MongoDB
+
+Utilisez **MongoDB Atlas** (gratuit jusqu'à 512MB):
+
+1. Créer un compte sur [MongoDB Atlas](https://www.mongodb.com/cloud/atlas)
+2. Créer un cluster gratuit (M0)
+3. Whitelist l'IP `0.0.0.0/0` (Cloud Run utilise des IPs dynamiques)
+4. Créer un utilisateur database
+5. Copier l'URI de connexion
+
+## 🏗️ Architecture
+
+```
+┌─────────────────────┐
+│   Client (Web)      │
+└──────────┬──────────┘
+           │
+           ▼
+┌─────────────────────┐
+│  Cloud Load Balancer│
+└──────────┬──────────┘
+           │
+           ▼
+┌─────────────────────┐      ┌──────────────────┐
+│  Gateway Service    │─────▶│  Tree Service    │
+│  (Cloud Run)        │      │  (Cloud Run)     │
+│  Port: 8080         │      │  Port: 8080      │
+└──────────┬──────────┘      └────────┬─────────┘
+           │                          │
+           └──────────┬───────────────┘
+                      ▼
+              ┌───────────────┐
+              │ MongoDB Atlas │
+              │   (External)  │
+              └───────────────┘
+```
+
+### Services Déployés
+
+1. **Tree Service** - Service de gestion de l'arbre MLM
+   - URL: `https://tree-service-xxx-uc.a.run.app`
+   - Scaling: 0-10 instances
+   - Memory: 512Mi
+   - CPU: 1
+
+2. **Gateway** - API GraphQL Gateway
+   - URL: `https://gateway-xxx-uc.a.run.app`
+   - Scaling: 1-10 instances (min 1 pour éviter cold starts)
+   - Memory: 512Mi
+   - CPU: 1
+
+## ⚙️ Configuration Initiale
+
+### Étape 1: Configuration Automatique
+
+```bash
+# Lancer le script de configuration
+./scripts/setup-cloudrun.sh
+```
+
+Ce script va:
+- ✅ Installer/vérifier gcloud CLI
+- ✅ Vous connecter à Google Cloud
+- ✅ Créer ou sélectionner un projet
+- ✅ Activer les APIs nécessaires
+- ✅ Configurer la région
+- ✅ Créer le fichier `.env.cloudrun`
+
+### Étape 2: Configuration Manuelle (Alternative)
+
+```bash
+# 1. Installer gcloud CLI
 curl https://sdk.cloud.google.com | bash
+exec -l $SHELL
 
-# Windows
-# Télécharger depuis https://cloud.google.com/sdk/docs/install
-```
-
-### 2. Authentification
-
-```bash
+# 2. Se connecter
 gcloud auth login
-gcloud auth configure-docker
-```
 
-### 3. Configuration du projet
+# 3. Créer un projet
+gcloud projects create bureau-mlm-prod --name="Bureau MLM"
 
-```bash
-# Remplacer YOUR_PROJECT_ID par votre ID de projet
-export PROJECT_ID="your-project-id"
-gcloud config set project $PROJECT_ID
+# 4. Configurer le projet
+gcloud config set project bureau-mlm-prod
+
+# 5. Activer les APIs
+gcloud services enable run.googleapis.com
+gcloud services enable cloudbuild.googleapis.com
+gcloud services enable containerregistry.googleapis.com
+
+# 6. Créer .env.cloudrun
+cat > .env.cloudrun << EOF
+export GCP_PROJECT_ID="bureau-mlm-prod"
+export GCP_REGION="us-central1"
+export MONGO_URI="mongodb+srv://user:pass@cluster.mongodb.net/bureau"
+export MONGO_DB_NAME="bureau"
+export REDIS_URL=""
+EOF
 ```
 
 ## 🚀 Déploiement
 
-### Déploiement automatique
+### Déploiement Automatique
 
 ```bash
-# Utiliser le script de déploiement
-./scripts/deploy-cloudrun.sh YOUR_PROJECT_ID us-central1
+# 1. Charger les variables d'environnement
+source .env.cloudrun
+
+# 2. Déployer sur Cloud Run
+./scripts/deploy-cloudrun.sh
 ```
 
-### Déploiement manuel
+### Déploiement Manuel
 
-#### 1. Construire l'image
+#### Tree Service
 
 ```bash
-# Construire avec Cloud Build
-gcloud builds submit --tag gcr.io/$PROJECT_ID/bureau-mlm-backend --file Dockerfile.cloudrun .
+# Build et push l'image
+cd services/tree-service
+gcloud builds submit \
+  --tag gcr.io/bureau-mlm-prod/tree-service:latest \
+  --dockerfile Dockerfile.cloudrun
+
+# Déployer
+gcloud run deploy tree-service \
+  --image gcr.io/bureau-mlm-prod/tree-service:latest \
+  --platform managed \
+  --region us-central1 \
+  --allow-unauthenticated \
+  --set-env-vars="MONGO_URI=$MONGO_URI,MONGO_DB_NAME=bureau" \
+  --memory 512Mi \
+  --cpu 1 \
+  --min-instances 0 \
+  --max-instances 10 \
+  --port 8080
+
+# Récupérer l'URL
+TREE_SERVICE_URL=$(gcloud run services describe tree-service \
+  --region us-central1 \
+  --format 'value(status.url)')
+echo "Tree Service: $TREE_SERVICE_URL"
+
+cd ../..
 ```
 
-#### 2. Déployer sur Cloud Run
+#### Gateway
 
 ```bash
-gcloud run deploy bureau-mlm-backend \
-    --image gcr.io/$PROJECT_ID/bureau-mlm-backend \
-    --platform managed \
-    --region us-central1 \
-    --allow-unauthenticated \
-    --port 8080 \
-    --memory 1Gi \
-    --cpu 1 \
-    --min-instances 0 \
-    --max-instances 10 \
-    --timeout 300 \
-    --concurrency 100
+# Build et push l'image
+cd gateway
+gcloud builds submit \
+  --tag gcr.io/bureau-mlm-prod/gateway:latest \
+  --dockerfile Dockerfile.cloudrun
+
+# Déployer
+gcloud run deploy gateway \
+  --image gcr.io/bureau-mlm-prod/gateway:latest \
+  --platform managed \
+  --region us-central1 \
+  --allow-unauthenticated \
+  --set-env-vars="TREE_SERVICE_URL=$TREE_SERVICE_URL" \
+  --memory 512Mi \
+  --cpu 1 \
+  --min-instances 1 \
+  --max-instances 10 \
+  --port 8080
+
+# Récupérer l'URL
+GATEWAY_URL=$(gcloud run services describe gateway \
+  --region us-central1 \
+  --format 'value(status.url)')
+echo "Gateway: $GATEWAY_URL"
+
+cd ..
 ```
 
-#### 3. Configurer les variables d'environnement
+## 📊 Gestion et Monitoring
+
+### Voir les Services
 
 ```bash
-gcloud run services update bureau-mlm-backend \
-    --region us-central1 \
-    --set-env-vars "MONGO_URI=mongodb+srv://leenor:avenir23@clusterzone1.b45aacv.mongodb.net/mlm?retryWrites=true&w=majority,MONGO_DB_NAME=mlm_db,JWT_SECRET=your-super-secret-jwt-key-change-this-in-production,JWT_REFRESH_SECRET=your-super-secret-refresh-key-change-this-in-production,JWT_ACCESS_EXP=15m,JWT_REFRESH_EXP=7d,ADMIN_SEED_EMAIL=admin@mlm.com,ADMIN_SEED_PASSWORD=admin123,APP_PORT=8080,APP_ENV=production,BINARY_THRESHOLD=100.0,BINARY_COMMISSION_RATE=0.1,DEFAULT_PRODUCT_PRICE=50.0,PORT=8080"
+# Lister tous les services
+gcloud run services list
+
+# Détails d'un service
+gcloud run services describe gateway --region us-central1
 ```
 
-## 🔧 Configuration avancée
-
-### Variables d'environnement sécurisées
-
-Pour la production, utilisez Google Secret Manager :
+### Logs
 
 ```bash
-# Créer des secrets
-gcloud secrets create jwt-secret --data-file=- <<< "your-super-secret-jwt-key"
-gcloud secrets create jwt-refresh-secret --data-file=- <<< "your-super-secret-refresh-key"
-gcloud secrets create mongo-uri --data-file=- <<< "mongodb+srv://..."
+# Logs du Gateway (temps réel)
+gcloud run logs read gateway --region us-central1 --limit 50 --follow
 
-# Accorder les permissions
-gcloud secrets add-iam-policy-binding jwt-secret \
-    --member="serviceAccount:YOUR_SERVICE_ACCOUNT" \
-    --role="roles/secretmanager.secretAccessor"
+# Logs du Tree Service
+gcloud run logs read tree-service --region us-central1 --limit 50
+
+# Filtrer par niveau
+gcloud run logs read gateway --region us-central1 --log-filter="severity>=ERROR"
 ```
 
-### Configuration avec cloud-run.yaml
+### Métriques
 
 ```bash
-# Déployer avec le fichier de configuration
-gcloud run services replace cloud-run.yaml
+# Ouvrir la console Cloud Run
+gcloud run services list --uri
+
+# Ou directement dans la console
+# https://console.cloud.google.com/run
 ```
 
-## 📊 Monitoring et logs
-
-### Voir les logs
+### Mise à Jour
 
 ```bash
-# Logs en temps réel
-gcloud run logs tail bureau-mlm-backend --region us-central1
+# Recharger les variables
+source .env.cloudrun
 
-# Logs historiques
-gcloud run logs read bureau-mlm-backend --region us-central1
+# Redéployer
+./scripts/deploy-cloudrun.sh
 ```
 
-### Monitoring
-
-- **Cloud Console** : https://console.cloud.google.com/run
-- **Métriques** : CPU, mémoire, requêtes, latence
-- **Alertes** : Configurer des alertes sur les erreurs
-
-## 🔒 Sécurité
-
-### 1. Authentification
+### Variables d'Environnement
 
 ```bash
-# Désactiver l'accès public (optionnel)
-gcloud run services remove-iam-policy-binding bureau-mlm-backend \
-    --member="allUsers" \
-    --role="roles/run.invoker" \
-    --region us-central1
+# Mettre à jour une variable
+gcloud run services update gateway \
+  --region us-central1 \
+  --set-env-vars="NEW_VAR=value"
+
+# Supprimer une variable
+gcloud run services update gateway \
+  --region us-central1 \
+  --remove-env-vars="VAR_NAME"
 ```
 
-### 2. HTTPS uniquement
+### Rollback
 
 ```bash
-# Forcer HTTPS
-gcloud run services update bureau-mlm-backend \
-    --region us-central1 \
-    --set-env-vars "FORCE_HTTPS=true"
+# Voir les révisions
+gcloud run revisions list --service gateway --region us-central1
+
+# Revenir à une révision précédente
+gcloud run services update-traffic gateway \
+  --region us-central1 \
+  --to-revisions REVISION_NAME=100
 ```
 
-### 3. CORS
+## 💰 Coûts Estimés
+
+### Tier Gratuit
+
+- **Requêtes**: 2 millions/mois
+- **CPU**: 180,000 vCPU-secondes/mois
+- **Mémoire**: 360,000 GiB-secondes/mois
+- **Réseau sortant**: 1 GB/mois
+
+### Estimation Mensuelle (après tier gratuit)
+
+**Scénario 1: Faible Trafic (< 100k requêtes/mois)**
+- Tree Service (min 0): **$0-2/mois**
+- Gateway (min 1): **$5-8/mois**
+- **Total: $5-10/mois**
+
+**Scénario 2: Trafic Moyen (500k requêtes/mois)**
+- Tree Service: **$5-10/mois**
+- Gateway: **$10-15/mois**
+- **Total: $15-25/mois**
+
+**Scénario 3: Fort Trafic (2M requêtes/mois)**
+- Tree Service: **$15-20/mois**
+- Gateway: **$20-30/mois**
+- **Total: $35-50/mois**
+
+### Optimisation des Coûts
 
 ```bash
-# Configurer CORS pour le frontend
-gcloud run services update bureau-mlm-backend \
-    --region us-central1 \
-    --set-env-vars "CORS_ORIGINS=https://your-frontend-domain.com"
-```
+# Réduire min instances à 0 pour Gateway (augmente cold starts)
+gcloud run services update gateway \
+  --region us-central1 \
+  --min-instances 0
 
-## 🚀 CI/CD avec GitHub Actions
+# Réduire la mémoire
+gcloud run services update tree-service \
+  --region us-central1 \
+  --memory 256Mi
 
-Créer `.github/workflows/cloud-run.yml` :
-
-```yaml
-name: Deploy to Cloud Run
-
-on:
-  push:
-    branches: [main]
-
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    
-    steps:
-    - uses: actions/checkout@v3
-    
-    - name: Setup Google Cloud CLI
-      uses: google-github-actions/setup-gcloud@v1
-      with:
-        service_account_key: ${{ secrets.GCP_SA_KEY }}
-        project_id: ${{ secrets.GCP_PROJECT_ID }}
-    
-    - name: Deploy to Cloud Run
-      run: |
-        gcloud builds submit --tag gcr.io/${{ secrets.GCP_PROJECT_ID }}/bureau-mlm-backend --file Dockerfile.cloudrun .
-        gcloud run deploy bureau-mlm-backend \
-          --image gcr.io/${{ secrets.GCP_PROJECT_ID }}/bureau-mlm-backend \
-          --platform managed \
-          --region us-central1 \
-          --allow-unauthenticated
-```
-
-## 📈 Optimisations
-
-### 1. Performance
-
-- **Cold start** : Min instances = 1 pour éviter les cold starts
-- **Memory** : Ajuster selon l'utilisation (512Mi - 2Gi)
-- **CPU** : 1-2 vCPU selon la charge
-
-### 2. Coûts
-
-- **Min instances** : 0 pour économiser
-- **Max instances** : Limiter selon le budget
-- **Timeout** : 300s max pour éviter les coûts élevés
-
-### 3. Scaling
-
-```bash
-# Configuration de scaling
-gcloud run services update bureau-mlm-backend \
-    --region us-central1 \
-    --min-instances 1 \
-    --max-instances 20 \
-    --concurrency 100
+# Réduire max instances
+gcloud run services update gateway \
+  --region us-central1 \
+  --max-instances 5
 ```
 
 ## 🧪 Tests
 
-### Test local
+### Test Health Check
 
 ```bash
-# Tester l'image localement
-docker build -f Dockerfile.cloudrun -t bureau-mlm-backend .
-docker run -p 8080:8080 -e PORT=8080 bureau-mlm-backend
+# Récupérer les URLs
+GATEWAY_URL=$(gcloud run services describe gateway --region us-central1 --format 'value(status.url)')
+TREE_URL=$(gcloud run services describe tree-service --region us-central1 --format 'value(status.url)')
+
+# Tester Tree Service
+curl $TREE_URL/health
+
+# Tester Gateway
+curl $GATEWAY_URL
 ```
 
-### Test de déploiement
+### Test GraphQL
 
 ```bash
-# Tester l'endpoint
-curl https://your-service-url.run.app/
-
-# Tester GraphQL
-curl -X POST https://your-service-url.run.app/query \
+# Query simple
+curl -X POST $GATEWAY_URL/query \
   -H "Content-Type: application/json" \
-  -d '{"query": "query { __typename }"}'
+  -d '{"query":"{ __typename }"}'
+
+# Client Tree Query
+curl -X POST $GATEWAY_URL/query \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "query GetClientTree($id: ID!) { clientTree(id: $id) { root { id name } } }",
+    "variables": {"id": "YOUR_CLIENT_ID"}
+  }'
 ```
 
-## 🆘 Dépannage
+### GraphQL Playground
 
-### Problèmes courants
+Ouvrez simplement l'URL du Gateway dans votre navigateur:
 
-1. **Cold start lent** : Augmenter min-instances
-2. **Mémoire insuffisante** : Augmenter memory
-3. **Timeout** : Augmenter timeout ou optimiser le code
-4. **Erreurs de connexion** : Vérifier les variables d'environnement
+```
+https://gateway-xxx-uc.a.run.app
+```
 
-### Commandes utiles
+## 🔒 Sécurité
+
+### Authentification (Optionnel)
+
+Par défaut, les services sont publics (`--allow-unauthenticated`). Pour les sécuriser:
 
 ```bash
-# Voir les détails du service
-gcloud run services describe bureau-mlm-backend --region us-central1
+# Nécessiter l'authentification
+gcloud run services update gateway \
+  --region us-central1 \
+  --no-allow-unauthenticated
 
-# Voir les révisions
-gcloud run revisions list --service bureau-mlm-backend --region us-central1
-
-# Rollback
-gcloud run services update-traffic bureau-mlm-backend \
-    --to-revisions REVISION_NAME=100 \
-    --region us-central1
+# Appeler avec authentification
+curl -H "Authorization: Bearer $(gcloud auth print-identity-token)" \
+  $GATEWAY_URL/query
 ```
 
-## 📞 Support
+### Variables Secrètes
 
-- **Documentation Cloud Run** : https://cloud.google.com/run/docs
-- **Pricing** : https://cloud.google.com/run/pricing
-- **Quotas** : https://cloud.google.com/run/quotas
+Utilisez **Secret Manager** pour les données sensibles:
 
+```bash
+# Créer un secret
+echo -n "mongodb+srv://..." | gcloud secrets create mongo-uri --data-file=-
 
+# Utiliser dans Cloud Run
+gcloud run services update tree-service \
+  --region us-central1 \
+  --update-secrets=MONGO_URI=mongo-uri:latest
+```
 
+## 🆘 Troubleshooting
 
+### Problème: Build échoue
 
+```bash
+# Vérifier les logs de build
+gcloud builds list --limit 5
 
+# Voir les détails d'un build
+gcloud builds log BUILD_ID
+```
 
+### Problème: Service ne démarre pas
 
+```bash
+# Voir les logs
+gcloud run logs read tree-service --region us-central1 --limit 100
 
+# Vérifier la configuration
+gcloud run services describe tree-service --region us-central1
+```
 
+### Problème: Cold Starts
 
+```bash
+# Augmenter min instances
+gcloud run services update gateway \
+  --region us-central1 \
+  --min-instances 1
 
+# Ou activer le CPU boost
+gcloud run services update gateway \
+  --region us-central1 \
+  --cpu-boost
+```
 
+### Problème: MongoDB Connection
 
+```bash
+# Vérifier que l'IP 0.0.0.0/0 est whitelisted dans MongoDB Atlas
+# Tester la connexion depuis Cloud Shell
+gcloud cloud-shell ssh
+mongosh "$MONGO_URI"
+```
 
+### Problème: Service Timeout
 
+```bash
+# Augmenter le timeout (max 3600s)
+gcloud run services update gateway \
+  --region us-central1 \
+  --timeout 600s
+```
 
+## 📚 Ressources
 
+- [Documentation Cloud Run](https://cloud.google.com/run/docs)
+- [Pricing Calculator](https://cloud.google.com/products/calculator)
+- [Best Practices](https://cloud.google.com/run/docs/best-practices)
+- [MongoDB Atlas](https://www.mongodb.com/cloud/atlas)
 
+## 🎯 Checklist de Déploiement
 
+- [ ] Compte Google Cloud créé et facturation activée
+- [ ] MongoDB Atlas configuré avec IP 0.0.0.0/0 whitelisté
+- [ ] gcloud CLI installé et configuré
+- [ ] Variables d'environnement configurées dans `.env.cloudrun`
+- [ ] Tree Service déployé avec succès
+- [ ] Gateway déployé avec succès
+- [ ] Tests GraphQL fonctionnels
+- [ ] Logs et monitoring configurés
+- [ ] Plan de backup MongoDB en place
 
+---
+
+**Votre application est maintenant déployée sur Google Cloud Run! 🎉**
 
 
 

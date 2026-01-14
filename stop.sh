@@ -14,7 +14,7 @@ NC='\033[0m' # No Color
 # Variables
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$SCRIPT_DIR"
-PID_FILE="$PROJECT_ROOT/.services.pid"
+PID_FILE="$PROJECT_ROOT/.server.pid"
 
 # Fonction pour afficher les messages
 info() {
@@ -70,5 +70,8 @@ if [ $PIDS_NOT_FOUND -gt 0 ]; then
 fi
 
 info "Services arrêtés."
+
+
+
 
 

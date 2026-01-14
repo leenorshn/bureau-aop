@@ -6,7 +6,9 @@ package graph
 
 import (
 	"bureau/graph/model"
+	"bureau/internal/auth"
 	"bureau/internal/models"
+	"bureau/internal/validation"
 	"context"
 	"errors"
 	"fmt"
@@ -19,6 +21,11 @@ import (
 
 // UserLogin is the resolver for the userLogin field.
 func (r *mutationResolver) UserLogin(ctx context.Context, input model.LoginInput) (*model.AuthPayload, error) {
+	// Validate input
+	if err := validation.ValidateEmail(input.Email); err != nil {
+		return nil, err
+	}
+
 	ap, err := r.Resolver.authService.AdminLogin(ctx, input.Email, input.Password)
 	if err != nil {
 		return nil, err
@@ -78,8 +85,199 @@ func (r *mutationResolver) RefreshToken(ctx context.Context, input model.Refresh
 	return &model.AuthPayload{AccessToken: ap.AccessToken, RefreshToken: ap.RefreshToken, User: user}, nil
 }
 
+// ChangePassword is the resolver for the changePassword field.
+// Permet à un utilisateur authentifié (admin ou client) de changer son propre mot de passe
+func (r *mutationResolver) ChangePassword(ctx context.Context, input model.ChangePasswordInput) (bool, error) {
+	// Obtenir le token depuis les headers
+	var token string
+	if oc := graphql.GetOperationContext(ctx); oc != nil {
+		if oc.Headers != nil {
+			auth := oc.Headers.Get("Authorization")
+			if strings.HasPrefix(strings.ToLower(auth), "bearer ") {
+				token = strings.TrimSpace(auth[7:])
+			}
+		}
+	}
+	if token == "" {
+		return false, errors.New("authentification requise")
+	}
+
+	// Valider le nouveau mot de passe
+	if err := auth.ValidatePassword(input.NewPassword); err != nil {
+		return false, err
+	}
+
+	// Essayer d'abord comme admin
+	admin, err := r.Resolver.authService.ValidateToken(ctx, token)
+	if err == nil && admin != nil {
+		// Vérifier le mot de passe actuel
+		if !auth.CheckPasswordHash(input.CurrentPassword, admin.PasswordHash) {
+			return false, errors.New("mot de passe actuel incorrect")
+		}
+
+		// Mettre à jour le mot de passe de l'admin
+		err = r.Resolver.authService.UpdateAdminPassword(ctx, admin.ID.Hex(), input.NewPassword)
+		if err != nil {
+			return false, err
+		}
+		return true, nil
+	}
+
+	// Si ce n'est pas un admin, essayer comme client
+	jwt := r.Resolver.authService.GetJWTService()
+	claims, err := jwt.ValidateAccessToken(token)
+	if err == nil && claims != nil && claims.ClientID != "" {
+		// Récupérer le client
+		client, err := r.Resolver.clientService.GetByID(ctx, claims.ClientID)
+		if err != nil {
+			return false, errors.New("client introuvable")
+		}
+
+		// Vérifier le mot de passe actuel
+		if !auth.CheckPasswordHash(input.CurrentPassword, client.PasswordHash) {
+			return false, errors.New("mot de passe actuel incorrect")
+		}
+
+		// Mettre à jour le mot de passe du client
+		err = r.Resolver.clientService.UpdatePassword(ctx, client.ID.Hex(), input.NewPassword)
+		if err != nil {
+			return false, err
+		}
+		return true, nil
+	}
+
+	return false, errors.New("authentification invalide")
+}
+
+// ResetAdminPassword is the resolver for the resetAdminPassword field.
+// Permet à un admin de réinitialiser le mot de passe d'un autre admin (nécessite authentification admin)
+func (r *mutationResolver) ResetAdminPassword(ctx context.Context, input model.ResetPasswordInput) (bool, error) {
+	// Vérifier que l'utilisateur est authentifié comme admin
+	var token string
+	if oc := graphql.GetOperationContext(ctx); oc != nil {
+		if oc.Headers != nil {
+			auth := oc.Headers.Get("Authorization")
+			if strings.HasPrefix(strings.ToLower(auth), "bearer ") {
+				token = strings.TrimSpace(auth[7:])
+			}
+		}
+	}
+	if token == "" {
+		return false, errors.New("authentification admin requise")
+	}
+
+	_, err := r.Resolver.authService.ValidateToken(ctx, token)
+	if err != nil {
+		return false, errors.New("authentification admin requise")
+	}
+
+	// Valider l'ID
+	if err := validation.ValidateObjectID(input.ID); err != nil {
+		return false, err
+	}
+
+	// Valider le nouveau mot de passe
+	if err := auth.ValidatePassword(input.NewPassword); err != nil {
+		return false, err
+	}
+
+	// Mettre à jour le mot de passe
+	err = r.Resolver.authService.UpdateAdminPassword(ctx, input.ID, input.NewPassword)
+	if err != nil {
+		return false, fmt.Errorf("erreur lors de la réinitialisation: %w", err)
+	}
+
+	return true, nil
+}
+
+// ResetAdminPasswordByEmail is the resolver for the resetAdminPasswordByEmail field.
+// Permet à un admin de réinitialiser le mot de passe d'un autre admin par email
+func (r *mutationResolver) ResetAdminPasswordByEmail(ctx context.Context, input model.ResetPasswordByEmailInput) (bool, error) {
+	// Vérifier que l'utilisateur est authentifié comme admin
+	var token string
+	if oc := graphql.GetOperationContext(ctx); oc != nil {
+		if oc.Headers != nil {
+			auth := oc.Headers.Get("Authorization")
+			if strings.HasPrefix(strings.ToLower(auth), "bearer ") {
+				token = strings.TrimSpace(auth[7:])
+			}
+		}
+	}
+	if token == "" {
+		return false, errors.New("authentification admin requise")
+	}
+
+	_, err := r.Resolver.authService.ValidateToken(ctx, token)
+	if err != nil {
+		return false, errors.New("authentification admin requise")
+	}
+
+	// Valider l'email
+	if err := validation.ValidateEmail(input.Email); err != nil {
+		return false, err
+	}
+
+	// Mettre à jour le mot de passe
+	err = r.Resolver.authService.UpdateAdminPasswordByEmail(ctx, input.Email, input.NewPassword)
+	if err != nil {
+		return false, fmt.Errorf("erreur lors de la réinitialisation: %w", err)
+	}
+
+	return true, nil
+}
+
+// ResetClientPassword is the resolver for the resetClientPassword field.
+// Permet à un admin de réinitialiser le mot de passe d'un client
+func (r *mutationResolver) ResetClientPassword(ctx context.Context, input model.ResetClientPasswordInput) (bool, error) {
+	// Vérifier que l'utilisateur est authentifié comme admin
+	var token string
+	if oc := graphql.GetOperationContext(ctx); oc != nil {
+		if oc.Headers != nil {
+			auth := oc.Headers.Get("Authorization")
+			if strings.HasPrefix(strings.ToLower(auth), "bearer ") {
+				token = strings.TrimSpace(auth[7:])
+			}
+		}
+	}
+	if token == "" {
+		return false, errors.New("authentification admin requise")
+	}
+
+	_, err := r.Resolver.authService.ValidateToken(ctx, token)
+	if err != nil {
+		return false, errors.New("authentification admin requise")
+	}
+
+	// Valider le nouveau mot de passe
+	if err := auth.ValidatePassword(input.NewPassword); err != nil {
+		return false, err
+	}
+
+	// Mettre à jour le mot de passe
+	err = r.Resolver.clientService.UpdatePasswordByClientID(ctx, input.ClientID, input.NewPassword)
+	if err != nil {
+		return false, fmt.Errorf("erreur lors de la réinitialisation: %w", err)
+	}
+
+	return true, nil
+}
+
 // ProductCreate is the resolver for the productCreate field.
 func (r *mutationResolver) ProductCreate(ctx context.Context, input model.ProductInput) (*model.Product, error) {
+	// Validate input
+	if err := validation.ValidateName(input.Name); err != nil {
+		return nil, err
+	}
+	if err := validation.ValidatePrice(input.Price); err != nil {
+		return nil, err
+	}
+	if err := validation.ValidateStock(input.Stock); err != nil {
+		return nil, err
+	}
+	if err := validation.ValidateAmount(input.Points); err != nil {
+		return nil, err
+	}
+
 	now := time.Now()
 	p := &models.Product{
 		Name:        input.Name,
@@ -110,6 +308,25 @@ func (r *mutationResolver) ProductCreate(ctx context.Context, input model.Produc
 
 // ProductUpdate is the resolver for the productUpdate field.
 func (r *mutationResolver) ProductUpdate(ctx context.Context, id string, input model.ProductInput) (*model.Product, error) {
+	// Validate ID
+	if err := validation.ValidateObjectID(id); err != nil {
+		return nil, err
+	}
+
+	// Validate input
+	if err := validation.ValidateName(input.Name); err != nil {
+		return nil, err
+	}
+	if err := validation.ValidatePrice(input.Price); err != nil {
+		return nil, err
+	}
+	if err := validation.ValidateStock(input.Stock); err != nil {
+		return nil, err
+	}
+	if err := validation.ValidateAmount(input.Points); err != nil {
+		return nil, err
+	}
+
 	now := time.Now()
 	p := &models.Product{
 		Name:        input.Name,
@@ -139,11 +356,28 @@ func (r *mutationResolver) ProductUpdate(ctx context.Context, id string, input m
 
 // ProductDelete is the resolver for the productDelete field.
 func (r *mutationResolver) ProductDelete(ctx context.Context, id string) (bool, error) {
+	if err := validation.ValidateObjectID(id); err != nil {
+		return false, err
+	}
 	return r.Resolver.productService.Delete(ctx, id)
 }
 
 // ClientCreate is the resolver for the clientCreate field.
 func (r *mutationResolver) ClientCreate(ctx context.Context, input model.ClientInput) (*model.Client, error) {
+	// Validate input
+	if err := validation.ValidateName(input.Name); err != nil {
+		return nil, err
+	}
+	if err := auth.ValidatePassword(input.Password); err != nil {
+		return nil, err
+	}
+	if err := validation.ValidateObjectIDPtr(input.SponsorID); err != nil {
+		return nil, err
+	}
+	if err := validation.ValidatePositionPtr(input.Position); err != nil {
+		return nil, err
+	}
+
 	var sponsorOID *primitive.ObjectID
 	if input.SponsorID != nil {
 		oid, err := primitive.ObjectIDFromHex(*input.SponsorID)
@@ -250,11 +484,36 @@ func (r *mutationResolver) ClientUpdate(ctx context.Context, id string, input mo
 
 // ClientDelete is the resolver for the clientDelete field.
 func (r *mutationResolver) ClientDelete(ctx context.Context, id string) (bool, error) {
+	if err := validation.ValidateObjectID(id); err != nil {
+		return false, err
+	}
 	return r.Resolver.clientService.Delete(ctx, id)
 }
 
 // SaleCreate is the resolver for the saleCreate field.
 func (r *mutationResolver) SaleCreate(ctx context.Context, input model.SaleInput) (*model.Sale, error) {
+	// Validate input
+	if err := validation.ValidateObjectID(input.ClientID); err != nil {
+		return nil, err
+	}
+	if err := validation.ValidateObjectIDPtr(input.ProductID); err != nil {
+		return nil, err
+	}
+	if err := validation.ValidateQuantity(input.Quantity); err != nil {
+		return nil, err
+	}
+	if err := validation.ValidateAmountPositive(input.Amount); err != nil {
+		return nil, err
+	}
+	if err := validation.ValidateAmountPtr(input.PaidAmount); err != nil {
+		return nil, err
+	}
+	if input.Status != nil {
+		if err := validation.ValidateSaleStatus(*input.Status); err != nil {
+			return nil, err
+		}
+	}
+
 	// Resolve client
 	clientOID, err := primitive.ObjectIDFromHex(input.ClientID)
 	if err != nil {
@@ -268,12 +527,12 @@ func (r *mutationResolver) SaleCreate(ctx context.Context, input model.SaleInput
 	// Resolve product and get points
 	var productOID *primitive.ObjectID
 	var pointsToAdd float64
-	if input.ProductID != "" {
-		poid, err := primitive.ObjectIDFromHex(input.ProductID)
+	if input.ProductID != nil && *input.ProductID != "" {
+		poid, err := primitive.ObjectIDFromHex(*input.ProductID)
 		if err == nil {
 			productOID = &poid
 			// Get product to retrieve points and check stock
-			product, err := r.Resolver.productService.GetByID(ctx, input.ProductID)
+			product, err := r.Resolver.productService.GetByID(ctx, *input.ProductID)
 			if err != nil {
 				return nil, fmt.Errorf("produit introuvable: %w", err)
 			}
@@ -291,7 +550,7 @@ func (r *mutationResolver) SaleCreate(ctx context.Context, input model.SaleInput
 
 			// Diminuer le stock du produit
 			product.Stock = product.Stock - int(input.Quantity)
-			_, err = r.Resolver.productService.Update(ctx, input.ProductID, product)
+			_, err = r.Resolver.productService.Update(ctx, *input.ProductID, product)
 			if err != nil {
 				return nil, fmt.Errorf("échec de la mise à jour du stock: %w", err)
 			}
@@ -333,7 +592,7 @@ func (r *mutationResolver) SaleCreate(ctx context.Context, input model.SaleInput
 
 	// Ajouter les points au client selon le produit acheté et la quantité
 	// Les points = points du produit × quantité achetée
-	if input.ProductID != "" && pointsToAdd > 0 {
+	if input.ProductID != nil && *input.ProductID != "" && pointsToAdd > 0 {
 		err = r.Resolver.clientService.AddPoints(ctx, input.ClientID, pointsToAdd)
 		if err != nil {
 			// Si l'ajout de points échoue, on retourne une erreur car c'est important
@@ -399,6 +658,33 @@ func (r *mutationResolver) SaleCreate(ctx context.Context, input model.SaleInput
 
 // SaleUpdate is the resolver for the saleUpdate field.
 func (r *mutationResolver) SaleUpdate(ctx context.Context, id string, input model.SaleInput) (*model.Sale, error) {
+	// Validate ID
+	if err := validation.ValidateObjectID(id); err != nil {
+		return nil, err
+	}
+
+	// Validate input
+	if err := validation.ValidateObjectID(input.ClientID); err != nil {
+		return nil, err
+	}
+	if err := validation.ValidateObjectIDPtr(input.ProductID); err != nil {
+		return nil, err
+	}
+	if err := validation.ValidateQuantity(input.Quantity); err != nil {
+		return nil, err
+	}
+	if err := validation.ValidateAmountPositive(input.Amount); err != nil {
+		return nil, err
+	}
+	if err := validation.ValidateAmountPtr(input.PaidAmount); err != nil {
+		return nil, err
+	}
+	if input.Status != nil {
+		if err := validation.ValidateSaleStatus(*input.Status); err != nil {
+			return nil, err
+		}
+	}
+
 	// Resolve client
 	clientOID, err := primitive.ObjectIDFromHex(input.ClientID)
 	if err != nil {
@@ -406,8 +692,8 @@ func (r *mutationResolver) SaleUpdate(ctx context.Context, id string, input mode
 	}
 
 	var productOID *primitive.ObjectID
-	if input.ProductID != "" {
-		poid, err := primitive.ObjectIDFromHex(input.ProductID)
+	if input.ProductID != nil && *input.ProductID != "" {
+		poid, err := primitive.ObjectIDFromHex(*input.ProductID)
 		if err == nil {
 			productOID = &poid
 		}
@@ -464,11 +750,25 @@ func (r *mutationResolver) SaleUpdate(ctx context.Context, id string, input mode
 
 // SaleDelete is the resolver for the saleDelete field.
 func (r *mutationResolver) SaleDelete(ctx context.Context, id string) (bool, error) {
+	if err := validation.ValidateObjectID(id); err != nil {
+		return false, err
+	}
 	return r.Resolver.saleService.Delete(ctx, id)
 }
 
 // PaymentCreate is the resolver for the paymentCreate field.
 func (r *mutationResolver) PaymentCreate(ctx context.Context, input model.PaymentInput) (*model.Payment, error) {
+	// Validate input
+	if err := validation.ValidateObjectID(input.ClientID); err != nil {
+		return nil, err
+	}
+	if err := validation.ValidateAmountPositive(input.Amount); err != nil {
+		return nil, err
+	}
+	if err := validation.ValidatePaymentMethod(input.Method); err != nil {
+		return nil, err
+	}
+
 	clientOID, err := primitive.ObjectIDFromHex(input.ClientID)
 	if err != nil {
 		return nil, err
@@ -519,6 +819,22 @@ func (r *mutationResolver) PaymentCreate(ctx context.Context, input model.Paymen
 
 // PaymentUpdate is the resolver for the paymentUpdate field.
 func (r *mutationResolver) PaymentUpdate(ctx context.Context, id string, input model.PaymentInput) (*model.Payment, error) {
+	// Validate ID
+	if err := validation.ValidateObjectID(id); err != nil {
+		return nil, err
+	}
+
+	// Validate input
+	if err := validation.ValidateObjectID(input.ClientID); err != nil {
+		return nil, err
+	}
+	if err := validation.ValidateAmountPositive(input.Amount); err != nil {
+		return nil, err
+	}
+	if err := validation.ValidatePaymentMethod(input.Method); err != nil {
+		return nil, err
+	}
+
 	clientOID, err := primitive.ObjectIDFromHex(input.ClientID)
 	if err != nil {
 		return nil, err
@@ -541,11 +857,31 @@ func (r *mutationResolver) PaymentUpdate(ctx context.Context, id string, input m
 
 // PaymentDelete is the resolver for the paymentDelete field.
 func (r *mutationResolver) PaymentDelete(ctx context.Context, id string) (bool, error) {
+	if err := validation.ValidateObjectID(id); err != nil {
+		return false, err
+	}
 	return r.Resolver.paymentService.Delete(ctx, id)
 }
 
 // CommissionManualCreate is the resolver for the commissionManualCreate field.
 func (r *mutationResolver) CommissionManualCreate(ctx context.Context, input model.CommissionInput) (*model.Commission, error) {
+	// Validate input
+	if err := validation.ValidateObjectID(input.ClientID); err != nil {
+		return nil, err
+	}
+	if err := validation.ValidateObjectID(input.SourceClientID); err != nil {
+		return nil, err
+	}
+	if err := validation.ValidateAmountPositive(input.Amount); err != nil {
+		return nil, err
+	}
+	if err := validation.ValidateLevel(input.Level); err != nil {
+		return nil, err
+	}
+	if err := validation.ValidateCommissionType(input.Type); err != nil {
+		return nil, err
+	}
+
 	clientOID, err := primitive.ObjectIDFromHex(input.ClientID)
 	if err != nil {
 		return nil, err
@@ -575,6 +911,11 @@ func (r *mutationResolver) CommissionManualCreate(ctx context.Context, input mod
 // RunBinaryCommissionCheck is the resolver for the runBinaryCommissionCheck field.
 // Utilise le nouvel algorithme binaire amélioré
 func (r *mutationResolver) RunBinaryCommissionCheck(ctx context.Context, clientID string) (*model.CommissionResult, error) {
+	// Validate input
+	if err := validation.ValidateObjectID(clientID); err != nil {
+		return nil, err
+	}
+
 	// Utiliser le nouveau service d'algorithme binaire amélioré
 	result, err := r.Resolver.binaryCommissionService.ComputeBinaryCommission(ctx, clientID)
 	if err != nil {
@@ -601,6 +942,14 @@ func (r *mutationResolver) RunBinaryCommissionCheck(ctx context.Context, clientI
 
 // CaisseAddTransaction is the resolver for the caisseAddTransaction field.
 func (r *mutationResolver) CaisseAddTransaction(ctx context.Context, input model.CaisseTransactionInput) (*model.CaisseTransaction, error) {
+	// Validate input
+	if err := validation.ValidateTransactionType(input.Type); err != nil {
+		return nil, err
+	}
+	if err := validation.ValidateAmountPositive(input.Amount); err != nil {
+		return nil, err
+	}
+
 	transaction := &models.CaisseTransaction{
 		Type:          input.Type,
 		Amount:        input.Amount,
@@ -628,6 +977,11 @@ func (r *mutationResolver) CaisseAddTransaction(ctx context.Context, input model
 
 // CaisseUpdateBalance is the resolver for the caisseUpdateBalance field.
 func (r *mutationResolver) CaisseUpdateBalance(ctx context.Context, balance float64) (*model.Caisse, error) {
+	// Validate input
+	if err := validation.ValidateAmount(balance); err != nil {
+		return nil, err
+	}
+
 	updated, err := r.Resolver.caisseService.UpdateBalance(ctx, balance)
 	if err != nil {
 		return nil, err
@@ -710,6 +1064,9 @@ func (r *queryResolver) Products(ctx context.Context, filter *model.FilterInput,
 
 // Product is the resolver for the product field.
 func (r *queryResolver) Product(ctx context.Context, id string) (*model.Product, error) {
+	if err := validation.ValidateObjectID(id); err != nil {
+		return nil, err
+	}
 	p, err := r.Resolver.productService.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
@@ -802,6 +1159,9 @@ func (r *queryResolver) Clients(ctx context.Context, filter *model.FilterInput, 
 
 // Client is the resolver for the client field.
 func (r *queryResolver) Client(ctx context.Context, id string) (*model.Client, error) {
+	if err := validation.ValidateObjectID(id); err != nil {
+		return nil, err
+	}
 	c, err := r.Resolver.clientService.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
@@ -928,23 +1288,43 @@ func (r *queryResolver) Client(ctx context.Context, id string) (*model.Client, e
 }
 
 // ClientTree is the resolver for the clientTree field.
+// Utilise maintenant GetSubtreeWithGraphLookup pour charger tout l'arbre en une seule requête optimisée
 func (r *queryResolver) ClientTree(ctx context.Context, id string) (*model.ClientTree, error) {
+	if err := validation.ValidateObjectID(id); err != nil {
+		return nil, err
+	}
 	// Vérifier que le service client est disponible
 	if r.Resolver.clientService == nil {
 		return nil, fmt.Errorf("service client non disponible")
 	}
 
-	// Récupérer le client racine
-	client, err := r.Resolver.clientService.GetByID(ctx, id)
+	// Charger tout le sous-arbre en une seule requête optimisée avec $graphLookup
+	clients, err := r.Resolver.clientService.GetSubtreeWithGraphLookup(ctx, id, 0) // 0 = pas de limite de profondeur
 	if err != nil {
-		return nil, fmt.Errorf("client introuvable: %w", err)
+		return nil, fmt.Errorf("failed to load subtree: %w", err)
 	}
 
-	// Cache pour éviter les appels répétés à la DB
-	// Map: clientID -> isActive
+	if len(clients) == 0 {
+		return nil, fmt.Errorf("client introuvable: %s", id)
+	}
+
+	// Créer un index pour accès rapide O(1) par ID
+	clientMap := make(map[string]*models.Client)
+	var rootClient *models.Client
+	for _, client := range clients {
+		clientIDStr := client.ID.Hex()
+		clientMap[clientIDStr] = client
+		if clientIDStr == id {
+			rootClient = client
+		}
+	}
+
+	if rootClient == nil {
+		return nil, fmt.Errorf("root client not found in subtree: %s", id)
+	}
+
+	// Cache pour les vérifications d'activité
 	activeCache := make(map[string]bool)
-	
-	// Fonction helper pour vérifier si un client est actif (avec cache)
 	isClientActiveCached := func(clientID string) bool {
 		if active, found := activeCache[clientID]; found {
 			return active
@@ -962,118 +1342,183 @@ func (r *queryResolver) ClientTree(ctx context.Context, id string) (*model.Clien
 		return active
 	}
 
-	// Créer le nœud racine avec initialisation des champs obligatoires
-	rootNode := &model.ClientTreeNode{
-		ID:                client.ID.Hex(),
-		ClientID:          client.ClientID,
-		Name:              client.Name,
-		Phone:             client.Phone,
-		Level:             0,
-		Position:          nil,
-		ParentID:          nil,
-		NetworkVolumeLeft: client.NetworkVolumeLeft,
-		NetworkVolumeRight: client.NetworkVolumeRight,
-		BinaryPairs:       int32(client.BinaryPairs),
-		TotalEarnings:     client.TotalEarnings,
-		WalletBalance:     client.WalletBalance,
-		IsActive:          isClientActiveCached(client.ID.Hex()),
-		LeftActives:       0,    // Sera mis à jour par enrichClientTreeNode
-		RightActives:      0,    // Sera mis à jour par enrichClientTreeNode
-		IsQualified:       false, // Sera mis à jour par enrichClientTreeNode
-	}
-
-	// Enrichir le nœud racine avec les informations binaires (seulement pour les 3 premiers niveaux)
-	if err := r.enrichClientTreeNodeOptimized(ctx, rootNode, client, 0, 3, activeCache); err != nil {
-		// Log l'erreur mais continue quand même avec les valeurs par défaut
-		fmt.Printf("Erreur lors de l'enrichissement du nœud racine: %v\n", err)
-	}
-
-	// Collecter tous les descendants dans une liste plate
-	nodes := []*model.ClientTreeNode{rootNode}
+	// Construire l'arbre en mémoire de manière optimisée (BFS)
+	nodeMap := make(map[string]*model.ClientTreeNode)
+	var allNodes []*model.ClientTreeNode
 	maxLevel := 0
 
-	// Parcourir l'arbre pour collecter tous les nœuds
-	var collectTreeNodesHelper func(r *queryResolver, ctx context.Context, client *models.Client, level int, nodes *[]*model.ClientTreeNode, maxLevel *int, activeCache map[string]bool)
-	collectTreeNodesHelper = func(r *queryResolver, ctx context.Context, client *models.Client, level int, nodes *[]*model.ClientTreeNode, maxLevel *int, activeCache map[string]bool) {
-		currentLevel := level + 1
-		if currentLevel > *maxLevel {
-			*maxLevel = currentLevel
+	type queueItem struct {
+		client   *models.Client
+		level    int
+		parentID *string
+		position *string
+	}
+
+	queue := []queueItem{{client: rootClient, level: 0, parentID: nil, position: nil}}
+	visited := make(map[string]bool)
+
+	// Parcourir l'arbre en BFS
+	for len(queue) > 0 {
+		item := queue[0]
+		queue = queue[1:]
+
+		clientIDStr := item.client.ID.Hex()
+		if visited[clientIDStr] {
+			continue
 		}
-		if client.LeftChildID != nil {
-			leftChildID := client.LeftChildID.Hex()
-			leftChild, err := r.Resolver.clientService.GetByID(ctx, leftChildID)
-			if err == nil && leftChild != nil {
-				parentID := client.ID.Hex()
-				position := "left"
-				node := &model.ClientTreeNode{
-					ID:                leftChild.ID.Hex(),
-					ClientID:          leftChild.ClientID,
-					Name:             leftChild.Name,
-					Phone:            leftChild.Phone,
-					ParentID:         &parentID,
-					Level:             int32(currentLevel),
-					Position:         &position,
-					NetworkVolumeLeft: leftChild.NetworkVolumeLeft,
-					NetworkVolumeRight: leftChild.NetworkVolumeRight,
-					BinaryPairs:       int32(leftChild.BinaryPairs),
-					TotalEarnings:     leftChild.TotalEarnings,
-					WalletBalance:     leftChild.WalletBalance,
-					IsActive:          isClientActiveCached(leftChild.ID.Hex()),
-					LeftActives:       0,    // Sera mis à jour par enrichClientTreeNode
-					RightActives:      0,    // Sera mis à jour par enrichClientTreeNode
-					IsQualified:       false, // Sera mis à jour par enrichClientTreeNode
+		visited[clientIDStr] = true
+
+		if item.level > maxLevel {
+			maxLevel = item.level
+		}
+
+		// Créer le nœud
+		node := &model.ClientTreeNode{
+			ID:                 clientIDStr,
+			ClientID:           item.client.ClientID,
+			Name:               item.client.Name,
+			Phone:              item.client.Phone,
+			ParentID:           item.parentID,
+			Level:              int32(item.level),
+			Position:           item.position,
+			NetworkVolumeLeft:  item.client.NetworkVolumeLeft,
+			NetworkVolumeRight: item.client.NetworkVolumeRight,
+			BinaryPairs:        int32(item.client.BinaryPairs),
+			TotalEarnings:      item.client.TotalEarnings,
+			WalletBalance:      item.client.WalletBalance,
+			IsActive:           isClientActiveCached(clientIDStr),
+			LeftActives:        0,
+			RightActives:       0,
+			IsQualified:        false,
+		}
+
+		// Enrichir avec les informations binaires seulement pour les 3 premiers niveaux
+		if item.level < 3 {
+			leftActives, rightActives := r.countActivesInLegs(ctx, item.client, activeCache, 3-item.level)
+			node.LeftActives = int32(leftActives)
+			node.RightActives = int32(rightActives)
+			node.IsQualified = leftActives > 0 && rightActives > 0
+
+			if leftActives > 0 && rightActives > 0 {
+				if leftActives < rightActives {
+					cycles := int32(leftActives)
+					node.CyclesAvailable = &cycles
+				} else {
+					cycles := int32(rightActives)
+					node.CyclesAvailable = &cycles
 				}
-				// Enrichir le nœud avec les informations binaires (seulement pour les 3 premiers niveaux)
-				if err := r.enrichClientTreeNodeOptimized(ctx, node, leftChild, currentLevel, 3, activeCache); err != nil {
-					// Log l'erreur mais continue quand même avec les valeurs par défaut
-					fmt.Printf("Erreur lors de l'enrichissement du nœud: %v\n", err)
-				}
-				*nodes = append(*nodes, node)
-				collectTreeNodesHelper(r, ctx, leftChild, currentLevel, nodes, maxLevel, activeCache)
+			} else {
+				zero := int32(0)
+				node.CyclesAvailable = &zero
+			}
+		} else {
+			zero := int32(0)
+			node.CyclesAvailable = &zero
+		}
+
+		zero := int32(0)
+		node.CyclesPaidToday = &zero
+
+		nodeMap[clientIDStr] = node
+		allNodes = append(allNodes, node)
+
+		// Ajouter les enfants à la queue
+		parentIDStr := clientIDStr
+		if item.client.LeftChildID != nil {
+			leftChildIDStr := item.client.LeftChildID.Hex()
+			if leftChild, exists := clientMap[leftChildIDStr]; exists && !visited[leftChildIDStr] {
+				leftPos := "left"
+				queue = append(queue, queueItem{
+					client:   leftChild,
+					level:    item.level + 1,
+					parentID: &parentIDStr,
+					position: &leftPos,
+				})
 			}
 		}
-		if client.RightChildID != nil {
-			rightChildID := client.RightChildID.Hex()
-			rightChild, err := r.Resolver.clientService.GetByID(ctx, rightChildID)
-			if err == nil && rightChild != nil {
-				parentID := client.ID.Hex()
-				position := "right"
-				node := &model.ClientTreeNode{
-					ID:                rightChild.ID.Hex(),
-					ClientID:          rightChild.ClientID,
-					Name:             rightChild.Name,
-					Phone:            rightChild.Phone,
-					ParentID:         &parentID,
-					Level:             int32(currentLevel),
-					Position:         &position,
-					NetworkVolumeLeft: rightChild.NetworkVolumeLeft,
-					NetworkVolumeRight: rightChild.NetworkVolumeRight,
-					BinaryPairs:       int32(rightChild.BinaryPairs),
-					TotalEarnings:     rightChild.TotalEarnings,
-					WalletBalance:     rightChild.WalletBalance,
-					IsActive:          isClientActiveCached(rightChild.ID.Hex()),
-					LeftActives:       0,    // Sera mis à jour par enrichClientTreeNode
-					RightActives:      0,    // Sera mis à jour par enrichClientTreeNode
-					IsQualified:       false, // Sera mis à jour par enrichClientTreeNode
-				}
-				// Enrichir le nœud avec les informations binaires (seulement pour les 3 premiers niveaux)
-				if err := r.enrichClientTreeNodeOptimized(ctx, node, rightChild, currentLevel, 3, activeCache); err != nil {
-					// Log l'erreur mais continue quand même avec les valeurs par défaut
-					fmt.Printf("Erreur lors de l'enrichissement du nœud: %v\n", err)
-				}
-				*nodes = append(*nodes, node)
-				collectTreeNodesHelper(r, ctx, rightChild, currentLevel, nodes, maxLevel, activeCache)
+		if item.client.RightChildID != nil {
+			rightChildIDStr := item.client.RightChildID.Hex()
+			if rightChild, exists := clientMap[rightChildIDStr]; exists && !visited[rightChildIDStr] {
+				rightPos := "right"
+				queue = append(queue, queueItem{
+					client:   rightChild,
+					level:    item.level + 1,
+					parentID: &parentIDStr,
+					position: &rightPos,
+				})
 			}
 		}
 	}
-	collectTreeNodesHelper(r, ctx, client, 0, &nodes, &maxLevel, activeCache)
+
+	rootNode := nodeMap[id]
+	if rootNode == nil {
+		return nil, fmt.Errorf("root node not found after tree construction")
+	}
 
 	return &model.ClientTree{
 		Root:       rootNode,
-		Nodes:      nodes,
-		TotalNodes: int32(len(nodes)),
+		Nodes:      allNodes,
+		TotalNodes: int32(len(allNodes)),
 		MaxLevel:   int32(maxLevel),
 	}, nil
+}
+
+// countActivesInLegs compte les actifs dans chaque jambe avec limite de profondeur
+func (r *queryResolver) countActivesInLegs(ctx context.Context, client *models.Client, activeCache map[string]bool, maxDepth int) (leftActives, rightActives int) {
+	if maxDepth <= 0 {
+		return 0, 0
+	}
+
+	if client.LeftChildID != nil {
+		leftActives = r.countActivesInLeg(ctx, client.LeftChildID.Hex(), activeCache, maxDepth-1, 0)
+	}
+	if client.RightChildID != nil {
+		rightActives = r.countActivesInLeg(ctx, client.RightChildID.Hex(), activeCache, maxDepth-1, 0)
+	}
+
+	return leftActives, rightActives
+}
+
+// countActivesInLeg compte récursivement les actifs dans une jambe
+func (r *queryResolver) countActivesInLeg(ctx context.Context, clientID string, activeCache map[string]bool, maxDepth, currentDepth int) int {
+	if maxDepth <= 0 {
+		return 0
+	}
+
+	// Vérifier si le client est actif
+	isActive := false
+	if active, found := activeCache[clientID]; found {
+		isActive = active
+	} else {
+		if r.Resolver.binaryCommissionService != nil {
+			active, err := r.Resolver.binaryCommissionService.IsClientActive(ctx, clientID)
+			if err == nil {
+				isActive = active
+			}
+		}
+		activeCache[clientID] = isActive
+	}
+
+	count := 0
+	if isActive {
+		count = 1
+	}
+
+	// Récupérer le client pour accéder aux enfants
+	client, err := r.Resolver.clientService.GetByID(ctx, clientID)
+	if err != nil {
+		return count
+	}
+
+	// Compter les actifs dans les sous-arbres
+	if client.LeftChildID != nil {
+		count += r.countActivesInLeg(ctx, client.LeftChildID.Hex(), activeCache, maxDepth-1, currentDepth+1)
+	}
+	if client.RightChildID != nil {
+		count += r.countActivesInLeg(ctx, client.RightChildID.Hex(), activeCache, maxDepth-1, currentDepth+1)
+	}
+
+	return count
 }
 
 // Sales is the resolver for the sales field.
@@ -1195,6 +1640,9 @@ func (r *queryResolver) Sales(ctx context.Context, filter *model.FilterInput, pa
 
 // Sale is the resolver for the sale field.
 func (r *queryResolver) Sale(ctx context.Context, id string) (*model.Sale, error) {
+	if err := validation.ValidateObjectID(id); err != nil {
+		return nil, err
+	}
 	s, err := r.Resolver.saleService.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
@@ -1292,6 +1740,9 @@ func (r *queryResolver) Payments(ctx context.Context, filter *model.FilterInput,
 
 // Payment is the resolver for the payment field.
 func (r *queryResolver) Payment(ctx context.Context, id string) (*model.Payment, error) {
+	if err := validation.ValidateObjectID(id); err != nil {
+		return nil, err
+	}
 	p, err := r.Resolver.paymentService.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
@@ -1314,6 +1765,9 @@ func (r *queryResolver) Commissions(ctx context.Context, filter *model.FilterInp
 
 // Commission is the resolver for the commission field.
 func (r *queryResolver) Commission(ctx context.Context, id string) (*model.Commission, error) {
+	if err := validation.ValidateObjectID(id); err != nil {
+		return nil, err
+	}
 	c, err := r.Resolver.commissionService.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
@@ -1457,101 +1911,3 @@ func (r *Resolver) Subscription() SubscriptionResolver { return &subscriptionRes
 type mutationResolver struct{ *Resolver }
 type queryResolver struct{ *Resolver }
 type subscriptionResolver struct{ *Resolver }
-
-// enrichClientTreeNode enrichit un ClientTreeNode avec les informations binaires
-func (r *queryResolver) enrichClientTreeNode(ctx context.Context, node *model.ClientTreeNode, client *models.Client) error {
-	return r.enrichClientTreeNodeOptimized(ctx, node, client, 0, 3, make(map[string]bool))
-}
-
-// enrichClientTreeNodeOptimized enrichit un ClientTreeNode avec les informations binaires (version optimisée)
-// maxDepthForActives: limite la profondeur pour le calcul des actifs (0 = pas de limite, 3 = seulement 3 niveaux)
-func (r *queryResolver) enrichClientTreeNodeOptimized(ctx context.Context, node *model.ClientTreeNode, client *models.Client, currentLevel int, maxDepthForActives int, activeCache map[string]bool) error {
-	// Vérifier que le service est disponible
-	if r.Resolver.binaryCommissionService == nil {
-		// Si le service n'est pas disponible, on garde les valeurs par défaut déjà initialisées
-		zero := int32(0)
-		node.CyclesAvailable = &zero
-		node.CyclesPaidToday = &zero
-		return fmt.Errorf("binaryCommissionService n'est pas disponible")
-	}
-
-	// Récupérer les informations de base du client (déjà initialisées, mais on les met à jour au cas où)
-	node.NetworkVolumeLeft = client.NetworkVolumeLeft
-	node.NetworkVolumeRight = client.NetworkVolumeRight
-	node.BinaryPairs = int32(client.BinaryPairs)
-	node.TotalEarnings = client.TotalEarnings
-	node.WalletBalance = client.WalletBalance
-
-	// IsActive est déjà mis à jour via le cache dans ClientTree
-
-	// Calculer le nombre d'actifs dans chaque jambe SEULEMENT si on est dans les premiers niveaux
-	// Pour les niveaux plus profonds, on met 0 pour éviter les calculs coûteux
-	if maxDepthForActives == 0 || currentLevel < maxDepthForActives {
-		// Utiliser la version optimisée avec cache
-		remainingDepth := maxDepthForActives - currentLevel
-		if remainingDepth < 0 {
-			remainingDepth = 0
-		}
-		legs, err := r.Resolver.binaryCommissionService.GetLegsVolumesWithCache(ctx, client, activeCache, remainingDepth)
-		if err == nil && legs != nil {
-			node.LeftActives = int32(legs.LeftActives)
-			node.RightActives = int32(legs.RightActives)
-		} else {
-			// En cas d'erreur, on met 0 pour éviter de bloquer la requête
-			node.LeftActives = 0
-			node.RightActives = 0
-		}
-	} else {
-		// Pour les niveaux profonds, on ne calcule pas les actifs (trop coûteux)
-		node.LeftActives = 0
-		node.RightActives = 0
-	}
-
-	// Vérifier la qualification (seulement si on a calculé les actifs)
-	if maxDepthForActives == 0 || currentLevel < maxDepthForActives {
-		qualification, err := r.Resolver.binaryCommissionService.CheckQualification(ctx, client)
-		if err == nil && qualification != nil {
-			node.IsQualified = qualification.IsQualified
-		} else {
-			node.IsQualified = false
-		}
-	} else {
-		// Pour les niveaux profonds, on ne vérifie pas la qualification
-		node.IsQualified = false
-	}
-
-	// Calculer les cycles disponibles
-	if node.LeftActives > 0 && node.RightActives > 0 {
-		if node.LeftActives < node.RightActives {
-			cyclesInt32 := node.LeftActives
-			node.CyclesAvailable = &cyclesInt32
-		} else {
-			cyclesInt32 := node.RightActives
-			node.CyclesAvailable = &cyclesInt32
-		}
-	} else {
-		zero := int32(0)
-		node.CyclesAvailable = &zero
-	}
-
-	// Récupérer les cycles payés aujourd'hui (seulement pour les premiers niveaux pour éviter trop d'appels DB)
-	// On évite cette opération pour les niveaux profonds car elle peut être coûteuse
-	if (maxDepthForActives == 0 || currentLevel < maxDepthForActives) && r.Resolver.binaryCommissionService != nil {
-		today := time.Now().Truncate(24 * time.Hour)
-		capping, err := r.Resolver.binaryCommissionService.GetOrCreateCapping(ctx, client.ID, today)
-		if err == nil && capping != nil {
-			cyclesPaid := int32(capping.CyclesPaidToday)
-			node.CyclesPaidToday = &cyclesPaid
-		} else {
-			// En cas d'erreur, on met 0 pour ne pas bloquer la requête
-			zero := int32(0)
-			node.CyclesPaidToday = &zero
-		}
-	} else {
-		// Pour les niveaux profonds ou si le service n'est pas disponible, on met 0
-		zero := int32(0)
-		node.CyclesPaidToday = &zero
-	}
-
-	return nil
-}

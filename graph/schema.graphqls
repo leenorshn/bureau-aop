@@ -16,10 +16,10 @@ type Client {
   id: ID!
   clientId: String!
   name: String!
-  phone:String
-  nn:String
-  address:String
-  avatar:String
+  phone: String
+  nn: String
+  address: String
+  avatar: String
   sponsorId: ID
   position: String
   leftChildId: ID
@@ -216,16 +216,16 @@ input ClientInput {
   name: String!
   password: String!
   position: String
-  sponsorId: ID 
-  phone:String
-  nn:String
-  address:String
-  avatar:String
+  sponsorId: ID
+  phone: String
+  nn: String
+  address: String
+  avatar: String
 }
 
 input SaleInput {
   clientId: ID!
-  productId: ID!
+  productId: ID
   quantity: Int!
   amount: Float!
   paidAmount: Float
@@ -262,6 +262,26 @@ input RefreshTokenInput {
   token: String!
 }
 
+input ResetPasswordInput {
+  id: ID!
+  newPassword: String!
+}
+
+input ResetPasswordByEmailInput {
+  email: String!
+  newPassword: String!
+}
+
+input ChangePasswordInput {
+  currentPassword: String!
+  newPassword: String!
+}
+
+input ResetClientPasswordInput {
+  clientId: String!
+  newPassword: String!
+}
+
 input CaisseTransactionInput {
   type: String! # "entree" ou "sortie"
   amount: Float!
@@ -283,7 +303,7 @@ input PagingInput {
 }
 
 type Query {
-  me:User
+  me: User
 
   # Products
   products(filter: FilterInput, paging: PagingInput): [Product!]!
@@ -320,6 +340,10 @@ type Mutation {
   userLogin(input: LoginInput!): AuthPayload!
   clientLogin(input: ClientLoginInput!): AuthPayload!
   refreshToken(input: RefreshTokenInput!): AuthPayload!
+  changePassword(input: ChangePasswordInput!): Boolean!
+  resetAdminPassword(input: ResetPasswordInput!): Boolean!
+  resetAdminPasswordByEmail(input: ResetPasswordByEmailInput!): Boolean!
+  resetClientPassword(input: ResetClientPasswordInput!): Boolean!
 
   # Products
   productCreate(input: ProductInput!): Product!

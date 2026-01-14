@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Script pour lancer le projet (Gateway + Tree Service)
+# Script pour lancer le projet (Monolithe)
 # Usage: ./start.sh [--background]
 
 set -e
@@ -14,9 +14,7 @@ NC='\033[0m' # No Color
 # Variables
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$SCRIPT_DIR"
-TREE_SERVICE_DIR="$PROJECT_ROOT/services/tree-service"
-GATEWAY_DIR="$PROJECT_ROOT/gateway"
-PID_FILE="$PROJECT_ROOT/.services.pid"
+PID_FILE="$PROJECT_ROOT/.server.pid"
 LOG_DIR="$PROJECT_ROOT/logs"
 
 # Créer le dossier de logs
@@ -37,7 +35,7 @@ error() {
 
 # Fonction pour nettoyer les processus en cas d'interruption
 cleanup() {
-    info "Arrêt des services..."
+    info "Arrêt du serveur..."
     if [ -f "$PID_FILE" ]; then
         while read pid; do
             if ps -p "$pid" > /dev/null 2>&1; then
@@ -52,10 +50,10 @@ cleanup() {
 # Capturer les signaux pour nettoyer proprement
 trap cleanup SIGINT SIGTERM
 
-# Vérifier si les services sont déjà en cours d'exécution
+# Vérifier si le serveur est déjà en cours d'exécution
 if [ -f "$PID_FILE" ]; then
-    warn "Des services semblent déjà être en cours d'exécution."
-    read -p "Voulez-vous les arrêter et redémarrer? (y/N) " -n 1 -r
+    warn "Le serveur semble déjà être en cours d'exécution."
+    read -p "Voulez-vous l'arrêter et redémarrer? (y/N) " -n 1 -r
     echo
     if [[ $REPLY =~ ^[Yy]$ ]]; then
         ./stop.sh
@@ -78,89 +76,49 @@ fi
 
 # Variables d'environnement par défaut
 export MONGO_URI="${MONGO_URI:-mongodb://localhost:27017}"
-export MONGO_DB_NAME="${MONGO_DB_NAME:-bureau}"
-export TREE_SERVICE_PORT="${TREE_SERVICE_PORT:-8082}"
-export TREE_SERVICE_URL="${TREE_SERVICE_URL:-http://localhost:8082}"
-export GATEWAY_PORT="${GATEWAY_PORT:-8080}"
+export MONGO_DB_NAME="${MONGO_DB_NAME:-mlm_db}"
+export APP_PORT="${APP_PORT:-4000}"
 
 info "Configuration:"
 info "  MongoDB URI: $MONGO_URI"
 info "  MongoDB DB: $MONGO_DB_NAME"
-info "  Tree Service Port: $TREE_SERVICE_PORT"
-info "  Gateway Port: $GATEWAY_PORT"
-info "  Tree Service URL: $TREE_SERVICE_URL"
+info "  Server Port: $APP_PORT"
 
-# Vérifier que les dossiers existent
-if [ ! -d "$TREE_SERVICE_DIR" ]; then
-    error "Le dossier Tree Service n'existe pas: $TREE_SERVICE_DIR"
-    exit 1
-fi
-
-if [ ! -d "$GATEWAY_DIR" ]; then
-    error "Le dossier Gateway n'existe pas: $GATEWAY_DIR"
+# Vérifier que Go est installé
+if ! command -v go &> /dev/null; then
+    error "Go n'est pas installé. Veuillez installer Go 1.21+"
     exit 1
 fi
 
 # Vider le fichier PID
 > "$PID_FILE"
 
-# Lancer le Tree Service
-info "Démarrage du Tree Service..."
-cd "$TREE_SERVICE_DIR"
+# Lancer le serveur monolithique
+info "Démarrage du serveur..."
+cd "$PROJECT_ROOT"
 if [ "$1" == "--background" ]; then
-    go run main.go > "$LOG_DIR/tree-service.log" 2>&1 &
-    TREE_PID=$!
-    echo "$TREE_PID" >> "$PID_FILE"
-    info "Tree Service démarré (PID: $TREE_PID, logs: $LOG_DIR/tree-service.log)"
+    go run server.go > "$LOG_DIR/server.log" 2>&1 &
+    SERVER_PID=$!
+    echo "$SERVER_PID" >> "$PID_FILE"
+    info "Serveur démarré (PID: $SERVER_PID, logs: $LOG_DIR/server.log)"
 else
-    go run main.go > "$LOG_DIR/tree-service.log" 2>&1 &
-    TREE_PID=$!
-    echo "$TREE_PID" >> "$PID_FILE"
-    info "Tree Service démarré (PID: $TREE_PID)"
+    go run server.go > "$LOG_DIR/server.log" 2>&1 &
+    SERVER_PID=$!
+    echo "$SERVER_PID" >> "$PID_FILE"
+    info "Serveur démarré (PID: $SERVER_PID)"
 fi
 
-# Attendre que le Tree Service soit prêt
-info "Attente du Tree Service..."
+# Attendre que le serveur soit prêt
+info "Attente du serveur..."
 sleep 3
 for i in {1..10}; do
-    if curl -s "http://localhost:$TREE_SERVICE_PORT/health" > /dev/null 2>&1 || \
-       curl -s "http://localhost:$TREE_SERVICE_PORT/api/v1/tree" > /dev/null 2>&1; then
-        info "Tree Service est prêt!"
+    if curl -s "http://localhost:$APP_PORT/query" > /dev/null 2>&1 || \
+       curl -s "http://localhost:$APP_PORT/" > /dev/null 2>&1; then
+        info "Serveur est prêt!"
         break
     fi
     if [ $i -eq 10 ]; then
-        warn "Tree Service ne répond pas encore, mais on continue..."
-    else
-        sleep 1
-    fi
-done
-
-# Lancer le Gateway
-info "Démarrage du Gateway..."
-cd "$GATEWAY_DIR"
-if [ "$1" == "--background" ]; then
-    go run main.go > "$LOG_DIR/gateway.log" 2>&1 &
-    GATEWAY_PID=$!
-    echo "$GATEWAY_PID" >> "$PID_FILE"
-    info "Gateway démarré (PID: $GATEWAY_PID, logs: $LOG_DIR/gateway.log)"
-else
-    go run main.go > "$LOG_DIR/gateway.log" 2>&1 &
-    GATEWAY_PID=$!
-    echo "$GATEWAY_PID" >> "$PID_FILE"
-    info "Gateway démarré (PID: $GATEWAY_PID)"
-fi
-
-# Attendre que le Gateway soit prêt
-info "Attente du Gateway..."
-sleep 3
-for i in {1..10}; do
-    if curl -s "http://localhost:$GATEWAY_PORT/query" > /dev/null 2>&1 || \
-       curl -s "http://localhost:$GATEWAY_PORT/" > /dev/null 2>&1; then
-        info "Gateway est prêt!"
-        break
-    fi
-    if [ $i -eq 10 ]; then
-        warn "Gateway ne répond pas encore, mais on continue..."
+        warn "Serveur ne répond pas encore, mais on continue..."
     else
         sleep 1
     fi
@@ -168,28 +126,28 @@ done
 
 info ""
 info "=========================================="
-info "✅ Services démarrés avec succès!"
+info "✅ Serveur démarré avec succès!"
 info "=========================================="
 info ""
-info "Tree Service: http://localhost:$TREE_SERVICE_PORT"
-info "Gateway GraphQL: http://localhost:$GATEWAY_PORT"
-info "GraphQL Playground: http://localhost:$GATEWAY_PORT/"
+info "GraphQL Endpoint: http://localhost:$APP_PORT/query"
+info "GraphQL Playground: http://localhost:$APP_PORT/"
 info ""
-info "Logs:"
-info "  Tree Service: $LOG_DIR/tree-service.log"
-info "  Gateway: $LOG_DIR/gateway.log"
+info "Logs: $LOG_DIR/server.log"
 info ""
-info "Pour arrêter les services, utilisez: ./stop.sh"
+info "Pour arrêter le serveur, utilisez: ./stop.sh"
 info ""
 
 # Si en mode background, on sort
 if [ "$1" == "--background" ]; then
-    info "Services lancés en arrière-plan."
+    info "Serveur lancé en arrière-plan."
     exit 0
 fi
 
 # Sinon, on attend et affiche les logs
-info "Appuyez sur Ctrl+C pour arrêter les services..."
+info "Appuyez sur Ctrl+C pour arrêter le serveur..."
 wait
+
+
+
 
 
