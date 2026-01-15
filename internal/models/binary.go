@@ -9,6 +9,7 @@ import (
 // BinaryConfig représente la configuration du système binaire MLM
 type BinaryConfig struct {
 	CycleValue         float64 `bson:"cycleValue" json:"cycleValue"`                 // Valeur d'un cycle en $ (ex: 20$)
+	CommissionRate     float64 `bson:"commissionRate" json:"commissionRate"`         // Taux de commission (ex: 0.10)
 	DailyCycleLimit    int     `bson:"dailyCycleLimit" json:"dailyCycleLimit"`       // Limite de cycles par jour (ex: 4)
 	WeeklyCycleLimit   int     `bson:"weeklyCycleLimit" json:"weeklyCycleLimit"`     // Limite de cycles par semaine (optionnel)
 	MinVolumePerLeg    float64 `bson:"minVolumePerLeg" json:"minVolumePerLeg"`       // Volume minimum par jambe pour être payé

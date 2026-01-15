@@ -121,7 +121,7 @@ func (s *BinaryCommissionService) ComputeBinaryCommission(ctx context.Context, c
 		}, nil
 	}
 
-	// 5. Calculer les cycles possibles
+	// 5. Calculer les cycles possibles à partir des volumes
 	cyclesAvailable := s.calculateCycles(legs)
 
 	if cyclesAvailable == 0 {
@@ -155,8 +155,10 @@ func (s *BinaryCommissionService) ComputeBinaryCommission(ctx context.Context, c
 		}, nil
 	}
 
-	// 7. Calculer le montant
-	amount := float64(cyclesToPay) * s.config.CycleValue
+	// 7. Calculer le montant basé sur le volume faible
+	minVolumePerLeg := s.getMinVolumePerLeg()
+	volumeUsed := float64(cyclesToPay) * minVolumePerLeg
+	amount := s.calculateAmount(volumeUsed)
 
 	// 8. Enregistrer le paiement avec transaction atomique
 	var commission *models.Commission
@@ -178,7 +180,9 @@ func (s *BinaryCommissionService) ComputeBinaryCommission(ctx context.Context, c
 				return nil // Pas d'erreur, juste pas de cycles à payer
 			}
 
-			amount = float64(cyclesToPayFinal) * s.config.CycleValue
+			minVolumePerLeg := s.getMinVolumePerLeg()
+			volumeUsed = float64(cyclesToPayFinal) * minVolumePerLeg
+			amount = s.calculateAmount(volumeUsed)
 
 			// Créer la commission
 			commission, err = s.recordPayment(txCtx, client.ID, cyclesToPayFinal, amount)
@@ -187,7 +191,7 @@ func (s *BinaryCommissionService) ComputeBinaryCommission(ctx context.Context, c
 			}
 
 			// Déduire les volumes utilisés
-			leftRemaining, rightRemaining, err = s.deductVolume(txCtx, client.ID, legs, cyclesToPayFinal)
+			leftRemaining, rightRemaining, err = s.deductVolume(txCtx, client.ID, legs, volumeUsed)
 			if err != nil {
 				return fmt.Errorf("erreur lors de la déduction des volumes: %w", err)
 			}
@@ -247,7 +251,9 @@ func (s *BinaryCommissionService) ComputeBinaryCommission(ctx context.Context, c
 			}, nil
 		}
 
-		amount = float64(cyclesToPayFinal) * s.config.CycleValue
+		minVolumePerLeg := s.getMinVolumePerLeg()
+		volumeUsed = float64(cyclesToPayFinal) * minVolumePerLeg
+		amount = s.calculateAmount(volumeUsed)
 
 		// Créer la commission
 		commission, err = s.recordPayment(ctx, client.ID, cyclesToPayFinal, amount)
@@ -259,7 +265,7 @@ func (s *BinaryCommissionService) ComputeBinaryCommission(ctx context.Context, c
 		}
 
 		// Déduire les volumes utilisés
-		leftRemaining, rightRemaining, err = s.deductVolume(ctx, client.ID, legs, cyclesToPayFinal)
+		leftRemaining, rightRemaining, err = s.deductVolume(ctx, client.ID, legs, volumeUsed)
 		if err != nil {
 			return &models.BinaryCommissionResult{
 				Success: false,
@@ -401,12 +407,15 @@ func (s *BinaryCommissionService) countActivesInLeg(ctx context.Context, rootID 
 }
 
 // calculateCycles calcule le nombre de cycles possibles
-// cycles = min(leftActives, rightActives)
+// cycles = floor(min(leftVolume, rightVolume) / minVolumePerLeg)
 func (s *BinaryCommissionService) calculateCycles(legs *models.BinaryLegs) int {
-	if legs.LeftActives == 0 || legs.RightActives == 0 {
+	if legs.LeftVolume <= 0 || legs.RightVolume <= 0 {
 		return 0
 	}
-	return int(math.Min(float64(legs.LeftActives), float64(legs.RightActives)))
+
+	minVolumePerLeg := s.getMinVolumePerLeg()
+	weakVolume := math.Min(legs.LeftVolume, legs.RightVolume)
+	return int(math.Floor(weakVolume / minVolumePerLeg))
 }
 
 // applyDailyLimit applique la limite journalière de cycles
@@ -474,11 +483,7 @@ func (s *BinaryCommissionService) recordPayment(ctx context.Context, clientID pr
 }
 
 // deductVolume déduit les volumes utilisés des jambes
-func (s *BinaryCommissionService) deductVolume(ctx context.Context, clientID primitive.ObjectID, legs *models.BinaryLegs, cycles int) (float64, float64, error) {
-	// Volume utilisé = cycles (car 1 cycle = 1 actif gauche + 1 actif droite)
-	volumePerCycle := 1.0 // Simplification: 1 cycle = 1 unité de volume de chaque côté
-	volumeUsed := float64(cycles) * volumePerCycle
-
+func (s *BinaryCommissionService) deductVolume(ctx context.Context, clientID primitive.ObjectID, legs *models.BinaryLegs, volumeUsed float64) (float64, float64, error) {
 	leftRemaining := legs.LeftVolume - volumeUsed
 	rightRemaining := legs.RightVolume - volumeUsed
 
@@ -497,6 +502,18 @@ func (s *BinaryCommissionService) deductVolume(ctx context.Context, clientID pri
 	}
 
 	return leftRemaining, rightRemaining, nil
+}
+
+func (s *BinaryCommissionService) getMinVolumePerLeg() float64 {
+	if s.config.MinVolumePerLeg <= 0 {
+		return 1.0
+	}
+	return s.config.MinVolumePerLeg
+}
+
+func (s *BinaryCommissionService) calculateAmount(volumeUsed float64) float64 {
+	amount := volumeUsed * s.config.CommissionRate
+	return math.Round(amount*100) / 100
 }
 
 // updateClientEarnings met à jour les gains totaux et le wallet du client

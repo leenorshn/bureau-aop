@@ -122,6 +122,7 @@ func SetupTestEnvironment(t *testing.T) *TestConfig {
 	// Initialize Binary Commission Service
 	binaryConfig := models.BinaryConfig{
 		CycleValue:         cfg.BinaryCycleValue,
+		CommissionRate:     cfg.BinaryCommissionRate,
 		DailyCycleLimit:    cfg.BinaryDailyCycleLimit,
 		WeeklyCycleLimit:   cfg.BinaryWeeklyCycleLimit,
 		MinVolumePerLeg:    cfg.BinaryMinVolumePerLeg,
@@ -284,7 +285,7 @@ func CreateTestProduct(t *testing.T, tc *TestConfig, name string) string {
 	`, name)
 
 	resp := ExecuteGraphQL(t, tc, query, nil, tc.AdminToken)
-	if resp.Errors != nil && len(resp.Errors) > 0 {
+	if len(resp.Errors) > 0 {
 		t.Fatalf("Failed to create product: %v", resp.Errors)
 	}
 
@@ -323,7 +324,7 @@ func CreateTestClient(t *testing.T, tc *TestConfig, name string, sponsorID *stri
 	}
 
 	resp := ExecuteGraphQL(t, tc, query, nil, tc.AdminToken)
-	if resp.Errors != nil && len(resp.Errors) > 0 {
+	if len(resp.Errors) > 0 {
 		t.Fatalf("Failed to create client: %v", resp.Errors)
 	}
 
@@ -348,7 +349,7 @@ func CreateTestSale(t *testing.T, tc *TestConfig, clientID, productID string, am
 	`, clientID, productID, amount, status)
 
 	resp := ExecuteGraphQL(t, tc, query, nil, tc.AdminToken)
-	if resp.Errors != nil && len(resp.Errors) > 0 {
+	if len(resp.Errors) > 0 {
 		t.Fatalf("Failed to create sale: %v", resp.Errors)
 	}
 
@@ -358,14 +359,14 @@ func CreateTestSale(t *testing.T, tc *TestConfig, clientID, productID string, am
 
 // AssertNoErrors checks that there are no GraphQL errors
 func AssertNoErrors(t *testing.T, resp *GraphQLResponse) {
-	if resp.Errors != nil && len(resp.Errors) > 0 {
+	if len(resp.Errors) > 0 {
 		t.Fatalf("GraphQL errors: %v", resp.Errors)
 	}
 }
 
 // AssertHasErrors checks that there are GraphQL errors
 func AssertHasErrors(t *testing.T, resp *GraphQLResponse) {
-	if resp.Errors == nil || len(resp.Errors) == 0 {
+	if len(resp.Errors) == 0 {
 		t.Error("Expected GraphQL errors but got none")
 	}
 }

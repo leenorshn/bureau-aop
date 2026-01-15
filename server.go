@@ -111,6 +111,7 @@ func main() {
 	// Initialize Binary Commission Service with new algorithm
 	binaryConfig := models.BinaryConfig{
 		CycleValue:         cfg.BinaryCycleValue,
+		CommissionRate:     cfg.BinaryCommissionRate,
 		DailyCycleLimit:    cfg.BinaryDailyCycleLimit,
 		WeeklyCycleLimit:   cfg.BinaryWeeklyCycleLimit,
 		MinVolumePerLeg:    cfg.BinaryMinVolumePerLeg,

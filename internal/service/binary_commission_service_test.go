@@ -120,6 +120,7 @@ func createTestBinaryService() (*BinaryCommissionService, *mockClientRepo, *mock
 
 	config := models.BinaryConfig{
 		CycleValue:         20.0,
+		CommissionRate:     0.10,
 		DailyCycleLimit:    4,
 		MinVolumePerLeg:    1.0,
 		RequireDirectLeft:  true,
@@ -133,6 +134,7 @@ func createTestBinaryService() (*BinaryCommissionService, *mockClientRepo, *mock
 		cappingRepo,
 		logger,
 		config,
+		nil,
 	)
 
 	return service, clientRepo, commissionRepo, saleRepo, cappingRepo
@@ -415,10 +417,10 @@ func TestBinaryCommission_Case5_DailyLimit(t *testing.T) {
 		t.Errorf("Expected cyclesPaid <= 4 (limite journalière), got %d", result1.CyclesPaid)
 	}
 
-	// Le montant devrait être cyclesPaid * 20
-	expectedAmount := float64(result1.CyclesPaid) * 20.0
+	// Le montant devrait être volumeUtilise * commissionRate
+	expectedAmount := float64(result1.CyclesPaid) * service.config.MinVolumePerLeg * service.config.CommissionRate
 	if result1.Amount != expectedAmount {
-		t.Errorf("Expected amount=%f (cyclesPaid * 20), got %f", expectedAmount, result1.Amount)
+		t.Errorf("Expected amount=%f (volumeUtilise * commissionRate), got %f", expectedAmount, result1.Amount)
 	}
 
 	t.Logf("Test Case 5 - First Result: %+v", result1)
@@ -479,8 +481,8 @@ func TestCalculateCycles(t *testing.T) {
 
 	// Cas 1: 50 gauche, 100 droite → cycles = 50
 	legs1 := &models.BinaryLegs{
-		LeftActives:  50,
-		RightActives: 100,
+		LeftVolume:  50,
+		RightVolume: 100,
 	}
 	cycles1 := service.calculateCycles(legs1)
 	if cycles1 != 50 {
@@ -489,8 +491,8 @@ func TestCalculateCycles(t *testing.T) {
 
 	// Cas 2: 3 gauche, 5 droite → cycles = 3
 	legs2 := &models.BinaryLegs{
-		LeftActives:  3,
-		RightActives: 5,
+		LeftVolume:  3,
+		RightVolume: 5,
 	}
 	cycles2 := service.calculateCycles(legs2)
 	if cycles2 != 3 {
@@ -499,8 +501,8 @@ func TestCalculateCycles(t *testing.T) {
 
 	// Cas 3: 0 gauche, 10 droite → cycles = 0
 	legs3 := &models.BinaryLegs{
-		LeftActives:  0,
-		RightActives: 10,
+		LeftVolume:  0,
+		RightVolume: 10,
 	}
 	cycles3 := service.calculateCycles(legs3)
 	if cycles3 != 0 {
